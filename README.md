@@ -20,11 +20,11 @@ at the end of the term.
 - Users can create multiple sets of study materials on each account.
 
 # User Stories
-1) As a student, I want to be able to take practice quizzes based off my notes so that I can study my course materials.
-2) As a student, I want to be able to review my notes on flashcards, so that I am ready to take a practice quiz.
+1) As a student, I want to be able to create flashcards, so that I can review course material.
+2) As a student, I want to be able to take quizzes based off my flashcards, so that I can test my knowledge on my notes.
 3) As a student, I want to be able to edit my existing practice quizzes and flashcards, so that I can keep them up to date and accurate.
 4) As a student, I want to be able to create multiple sets of study materials, so that I can study different subjects at the same time.
-5) As a student, I want to be able to save my study sets, so that I can go back to them whenever I want. 
+5) As a student, I want to be able to save my study sets, so that I can go back to them whenever I want.
 6) As a student, I want to be able to go back and retry missed quiz questions, so that I can learn from my mistakes.
 7) As a student, I want to be able to customize my practice quiz's difficulty and time limit, so that I can practice at a preferred level.
 
