@@ -58,6 +58,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 - 7a. The user wants to add more flashcards: the user selects "Add Flashcard" again (return to step 2).
 
 **Success outcome:** The new flashcard is part of the chosen study set, and the study set's other flashcards are unchanged.
+
 ---
 
 ### Use Case 2: Generate Flashcards from Lecture Notes
@@ -116,8 +117,6 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Success outcome:** The flashcard in the study set reflects the user's edits.
 
 ---
-
-### Use Case 4: Create Multiple Sets of Flashcards
 
 ### Use Case 4: Create Study Set
 
