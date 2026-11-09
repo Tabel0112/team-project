@@ -21,9 +21,10 @@ at the end of the term.
 
 # User Stories
 1) As a student, I want to be able to create flashcards, so that I can review course material.
-2) As a student, I want to be able to edit my existing practice flashcards, so that I can keep them up to date and accurate.
-3) As a student, I want to be able to create multiple sets of study materials, so that I can study different subjects at the same time.
-4) As a student, I want to be able to save my study sets, so that I can go back to them whenever I want.
+2) As a student, I want to upload lecture notes and have flashcards made for me, to make studying more efficient.
+3) As a student, I want to be able to edit my existing practice flashcards, so that I can keep them up to date and accurate.
+4) As a student, I want to be able to create multiple sets of study materials, so that I can study different subjects at the same time.
+5) As a student, I want to be able to save my study sets, so that I can go back to them whenever I want.
 
 # APIs (WIP)
 - AI API (OpenAI/Gemini)
