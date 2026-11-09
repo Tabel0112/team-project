@@ -14,20 +14,17 @@ at the end of the term.
 
 # Summary
 - Turns course materials into practice quizzes and flashcards to help students study.
-- A student uploads notes and chooses what to practice, and it creates flashcards and a practice quiz based off the notes.
-- Incorrectly answered questions on the practice quizzes will be stored in a "Re-quiz" section, so the user can practice the questions they got wrong.
+- A student uploads notes and chooses what to practice, and it creates flashcards based off the notes.
+- The user will be able to move and copy existing flashcards into another, new or already existing group of flashcards
 - Users' tests can be saved on an account which saves the previously created study materials to a cloud.
 - Users can create multiple sets of study materials on each account.
 
 # User Stories
 1) As a student, I want to be able to create flashcards, so that I can review course material.
-2) As a student, I want to be able to take quizzes based off my flashcards, so that I can test my knowledge on my notes.
-3) As a student, I want to be able to edit my existing practice quizzes and flashcards, so that I can keep them up to date and accurate.
-4) As a student, I want to be able to create multiple sets of study materials, so that I can study different subjects at the same time.
-5) As a student, I want to be able to save my study sets, so that I can go back to them whenever I want.
-6) As a student, I want to be able to go back and retry missed quiz questions, so that I can learn from my mistakes.
-7) As a student, I want to be able to customize my practice quiz's difficulty and time limit, so that I can practice at a preferred level.
+2) As a student, I want to be able to edit my existing practice flashcards, so that I can keep them up to date and accurate.
+3) As a student, I want to be able to create multiple sets of study materials, so that I can study different subjects at the same time.
+4) As a student, I want to be able to save my study sets, so that I can go back to them whenever I want.
 
 # APIs (WIP)
-- AI API (undecided)
-- Some database API to store data (undecided which)
+- AI API (OpenAI/Gemini)
+- Database API to store data (Supabase)
