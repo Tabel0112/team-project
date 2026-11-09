@@ -36,3 +36,8 @@ build/
 
 ### Mac OS ###
 .DS_Store
+# Credentials and local study data
+.env
+.env.*
+!.env.example
+.study-app/
