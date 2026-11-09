@@ -19,7 +19,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 ---
 ## User Stories
 
-### User Story 1: As a student, I want to be able to create flashcards, so that I can .
+### User Story 1: As a student, I want to be able to create flashcards, so that I can build a set of study material tailored to my courses.
 
 ### User Story 2: As a student, I want to upload lecture notes and have flashcards made for me, to make studying more efficient.
 
@@ -174,6 +174,37 @@ The Flashcards application turns course materials into practice quizzes and flas
 - 5a. Login fails because of invalid credentials: the system shows an error message and lets the user try again.
 
 **Success outcome:** The study set and its flashcards are stored in the cloud under the user's account and can be retrieved in later sessions.
+
+### Use Case 6: Practice Study Set
+
+**Name:** Practice Study Set
+
+**Primary actor:** Student (User)
+
+**Preconditions:**
+- The user has a study set containing at least one flashcard.
+
+**Trigger:** The user selects "Study" on a study set.
+
+**Main success scenario:**
+1. The user opens a study set and selects "Study".
+2. The system displays the first flashcard with only the question visible.
+3. The user tries to recall the answer and selects "Flip".
+4. The system reveals the answer.
+5. The user marks the flashcard as "Got it" or "Still learning".
+6. The system records the result and displays the next flashcard.
+7. The user repeats steps 3 to 6 until every flashcard has been reviewed.
+8. The system displays a summary showing how many flashcards were marked "Got it" and how many "Still learning".
+
+**Extensions:**
+- 2a. The study set has no flashcards: the system shows a message and offers to add flashcards (see Use Case 1).
+- 2b. The user chooses to shuffle: the system randomizes the order of the flashcards before starting.
+- 6a. The user selects "Previous": the system displays the previous flashcard.
+- 7a. The user ends the session early: the system displays a summary of the flashcards reviewed so far.
+- 8a. The user selects "Practice missed cards": the system starts a new session with only the "Still learning" flashcards (return to step 2).
+
+**Success outcome:** The user has gone through the flashcards in the study set and can see which ones they know and which they still need to review.
+
 
 ---
 ## Minimal Viable Product (MVP)
