@@ -1,8 +1,8 @@
 package org.example.studyapp.app;
 
 import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.SwingConstants;
+import org.example.studyapp.ui.StudyAppPanel;
+import java.awt.Dimension;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
@@ -20,8 +20,9 @@ public final class Main {
 
         JFrame frame = new JFrame("Study App");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.add(new JLabel("Study App", SwingConstants.CENTER));
-        frame.setSize(800, 600);
+        frame.add(new StudyAppPanel());
+        frame.setMinimumSize(new Dimension(900, 620));
+        frame.setSize(1100, 720);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }

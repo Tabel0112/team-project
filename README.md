@@ -224,7 +224,15 @@ The Flashcards application turns course materials into practice quizzes and flas
 ---
 ## How to Run
 
-[Instructions for running the program.]
+Requires Java 11+ and Maven. From the project directory:
+
+```sh
+mvn compile
+java -cp target/classes org.example.studyapp.app.Main
+```
+
+The frontend contains three empty tabs: Study sets, Upload PDF, and Review.
+No page content or application features are implemented.
 
 ---
 ## Notes
