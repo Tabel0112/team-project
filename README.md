@@ -144,6 +144,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 - 6a. The user wants another study set for a different subject: the user returns to their list and selects "New Study Set" again (return to step 1). Each study set is kept separate from the others.
 
 **Success outcome:** A new, empty study set exists in the user's account alongside any existing study sets, so the user can create as many separate study sets as they need.
+
 ---
 
 ### Use Case 5: Save Study Set
