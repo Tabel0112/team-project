@@ -3,11 +3,11 @@
 ## Team Information
 
 ### Team Members
-- Ryan
 - Wes
+- Ryan
 - Elia
-- Abel
 - Olivia
+- Abel
   
 ---
 ## Project Description
@@ -44,9 +44,11 @@ The Flashcards application turns course materials into practice quizzes and flas
 
 | Team Member | MVP Use Case |
 |-------------|--------------|
-| Name | Use Case |
-| Name | Use Case |
-| Name | Use Case |
+| Wes | Use Case |
+| Ryan | Use Case |
+| Elia | Use Case |
+| Olivia | Use Case |
+| Abel | Use Case |
 
 ---
 ## Entities
