@@ -216,6 +216,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 | Elia | Edit Flashcard |
 | Olivia | Create Multiple Sets of Flashcards |
 | Abel | Save Study Set |
+| Everyone| Practice Study Set |
 
 ---
 ## Entities
