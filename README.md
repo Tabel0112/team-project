@@ -29,6 +29,8 @@ The Flashcards application turns course materials into practice quizzes and flas
 
 ### User Story 5: As a student, I want to be able to save my study sets, so that I can go back to them whenever I want.
 
+### User Story 6: As a student, I want to be able to go through and practice with my study set, so that I can review my course material.
+
 ---
 ## Use Cases
 
