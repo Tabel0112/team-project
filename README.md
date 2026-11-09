@@ -32,34 +32,32 @@ The Flashcards application turns course materials into practice quizzes and flas
 ---
 ## Use Cases
 
-### Use Case 1: Create a Set of Flashcards
+### Use Case 1: Add Flashcard to Study Set
 
-**Name:** Create a Set of Flashcards
+**Name:** Add Flashcard to Study Set
 
 **Primary actor:** Student (User)
 
 **Preconditions:**
-- The user has opened the application.
+- The user has at least one existing study set.
 
-**Trigger:** The user selects "New Set".
+**Trigger:** The user selects "Add Flashcard" within a study set.
 
 **Main success scenario:**
-1. The user selects "New Set".
-2. The system prompts the user for a name for the set.
-3. The user enters a name and confirms.
-4. The system creates an empty study set and opens it, showing an empty cards list.
-5. The user selects "Add Flashcard", enters a question and an answer, and confirms.
-6. The system validates that neither field is empty and adds the flashcard to the set's cards list.
-7. The user repeats steps 5 and 6 until all the flashcards they want are added.
-8. The user finishes, and the system displays the completed set with all of its flashcards.
+1. The user opens an existing study set.
+2. The user selects "Add Flashcard".
+3. The system displays a form with a question field and an answer field.
+4. The user enters a question and an answer, and confirms.
+5. The system validates that neither field is empty.
+6. The system creates the flashcard and adds it to the study set's cards list.
+7. The system displays the updated study set, including the new flashcard.
 
 **Extensions:**
-- 3a. The set name is empty: the system shows an error message and asks for a name (return to step 3).
-- 3b. The user cancels: no set is created.
-- 6a. The question or answer field is empty: the system shows an error message and asks the user to fill in the missing field (return to step 5).
+- 5a. The question or answer field is empty: the system shows an error message and asks the user to fill in the missing field (return to step 4).
+- 4a. The user cancels: no flashcard is created and the study set is unchanged.
+- 7a. The user wants to add more flashcards: the user selects "Add Flashcard" again (return to step 2).
 
-**Success outcome:** A new study set exists containing the flashcards the user created, ready for review.
-
+**Success outcome:** The new flashcard is part of the chosen study set, and the study set's other flashcards are unchanged.
 ---
 
 ### Use Case 2: Generate Flashcards from Lecture Notes
@@ -121,32 +119,32 @@ The Flashcards application turns course materials into practice quizzes and flas
 
 ### Use Case 4: Create Multiple Sets of Flashcards
 
-**Name:** Create Multiple Sets of Flashcards
+### Use Case 4: Create Study Set
+
+**Name:** Create Study Set
 
 **Primary actor:** Student (User)
 
 **Preconditions:**
 - The user is logged in to their account.
-- The user already has at least one study set.
 
-**Trigger:** The user selects "New Set" from their list of study sets.
+**Trigger:** The user selects "New Study Set".
 
 **Main success scenario:**
-1. The user views their list of existing study sets.
-2. The user selects "New Set" to start another one for a different subject or course.
-3. The system prompts the user for a name for the new set.
-4. The user enters a name and confirms.
-5. The system validates that the name is not empty and not already used by another of the user's sets.
-6. The system creates the new empty set and adds it to the user's list alongside the existing sets.
-7. The user returns to the list and opens any set, and the system displays that set's flashcards without affecting the others.
+1. The user selects "New Study Set".
+2. The system prompts the user for a name for the study set (for example, a course or subject).
+3. The user enters a name and confirms.
+4. The system validates that the name is not empty and not already used by another of the user's study sets.
+5. The system creates an empty study set and adds it to the user's list of study sets.
+6. The system opens the new study set so the user can start adding flashcards.
 
 **Extensions:**
-- 5a. The name is empty: the system shows an error message and asks for a name (return to step 4).
-- 5b. The user already has a set with that name: the system asks the user to choose a different name (return to step 4).
-- 4a. The user cancels: no new set is created and the existing sets are unchanged.
+- 4a. The name is empty: the system shows an error message and asks for a name (return to step 3).
+- 4b. The user already has a study set with that name: the system asks the user to choose a different name (return to step 3).
+- 3a. The user cancels: no study set is created.
+- 6a. The user wants another study set for a different subject: the user returns to their list and selects "New Study Set" again (return to step 1). Each study set is kept separate from the others.
 
-**Success outcome:** The user's account holds multiple separate study sets, each with its own flashcards, so they can study different subjects at the same time.
-
+**Success outcome:** A new, empty study set exists in the user's account alongside any existing study sets, so the user can create as many separate study sets as they need.
 ---
 
 ### Use Case 5: Save Study Set
