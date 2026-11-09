@@ -2,11 +2,8 @@ package org.example.studyapp.view;
 
 import org.example.studyapp.entity.StudySet;
 import org.example.studyapp.entity.Card;
-import org.example.studyapp.entity.QuizSession;
 import org.example.studyapp.interface_adapter.storage.StorageController;
-import org.example.studyapp.interface_adapter.account.AccountController;
 import org.example.studyapp.interface_adapter.generate.GenerateController;
-import org.example.studyapp.interface_adapter.quiz.QuizController;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -14,7 +11,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.*;
-import java.nio.file.Files;
+import org.example.studyapp.use_case.generate.NotesReader;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
@@ -22,10 +19,8 @@ import java.util.function.Consumer;
 
 /** Desktop workspace: library, notes/editor, and focused practice sessions. */
 public final class StudyWindow extends JFrame {
+    private final NotesReader notesReader;
     private final StorageController local;
-    private final StorageController cloud;
-    private final AccountController accounts;
-    private final QuizController quizzes;
     private final GenerateController generator;
     private final DefaultListModel<StudySet> sets = new DefaultListModel<>();
     private final JList<StudySet> library = new JList<>(sets);
@@ -37,17 +32,17 @@ public final class StudyWindow extends JFrame {
     private final JTextArea answer = area(5, 45);
     private final JComboBox<String> difficulty = new JComboBox<>(new String[]{"Easy", "Medium", "Hard"});
     private final JSpinner count = new JSpinner(new SpinnerNumberModel(8, 1, 30, 1));
-    private final JSpinner minutes = new JSpinner(new SpinnerNumberModel(0, 0, 180, 1));
-    private final JLabel status = new JLabel("Create a study set or open one from your library.");
+    private final JLabel status = new JLabel("Create or open a study set. Changes save automatically when you close the app.");
     private StudySet selected;
     private Card selectedCard;
     private boolean rendering;
     private boolean dirty;
     private boolean busy;
 
-    public StudyWindow(StorageController local, StorageController cloud, GenerateController generator, AccountController accounts, QuizController quizzes, List<StudySet> initial) {
+    public StudyWindow(StorageController local, GenerateController generator, NotesReader notesReader, List<StudySet> initial) {
         super("Study App — your study workspace");
-        this.local = local; this.cloud = cloud; this.generator = generator; this.accounts = accounts; this.quizzes = quizzes;
+        this.notesReader = notesReader;
+        this.local = local; this.generator = generator;
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setMinimumSize(new Dimension(960, 700));
         setSize(1150, 800);
@@ -68,15 +63,13 @@ public final class StudyWindow extends JFrame {
         sidebar.add(libraryActions, BorderLayout.SOUTH);
 
         JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab("Notes & generation", notesPanel());
-        tabs.addTab("Edit cards", editorPanel());
-        tabs.addTab("Practice", practicePanel());
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, tabs);
+        tabs.addTab("Create & edit cards", editorPanel());
+        tabs.addTab("PDF & AI generation", notesPanel());
+        tabs.addTab("Flashcards", practicePanel());
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, workspace(tabs));
         split.setResizeWeight(0.23); split.setBorder(null);
         root.add(split, BorderLayout.CENTER);
         JPanel footer = new JPanel(new BorderLayout(12, 12));
-        footer.add(actions(button("Save locally", this::save), button("Account", this::account),
-                button("Upload to cloud", this::upload), button("Download from cloud", this::download)), BorderLayout.NORTH);
         status.setBorder(new EmptyBorder(4, 0, 0, 0));
         footer.add(status, BorderLayout.SOUTH);
         root.add(footer, BorderLayout.SOUTH);
@@ -98,12 +91,7 @@ public final class StudyWindow extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override public void windowClosing(WindowEvent e) {
                 if (busy) { message("Wait for the current operation to finish before closing."); return; }
-                if (dirty) {
-                    int choice = JOptionPane.showConfirmDialog(StudyWindow.this,
-                            "Save your changes before closing?", "Unsaved study sets", JOptionPane.YES_NO_CANCEL_OPTION);
-                    if (choice == JOptionPane.CANCEL_OPTION || choice == JOptionPane.CLOSED_OPTION) return;
-                    if (choice == JOptionPane.YES_OPTION && !save()) return;
-                }
+                if (dirty && !save()) return;
                 dispose();
             }
         });
@@ -112,16 +100,22 @@ public final class StudyWindow extends JFrame {
         setLocationRelativeTo(null);
     }
 
+    private JPanel workspace(JTabbedPane tabs) {
+        JPanel panel = new JPanel(new BorderLayout(12, 12));
+        panel.add(labeled("Set title", title), BorderLayout.NORTH);
+        panel.add(tabs, BorderLayout.CENTER);
+        return panel;
+    }
+
     private JPanel notesPanel() {
         JPanel panel = page();
-        JPanel fields = new JPanel(new GridLayout(0, 1, 0, 6));
-        fields.add(new JLabel("Set title")); fields.add(title);
-        panel.add(fields, BorderLayout.NORTH);
-        notes.setToolTipText("Paste course notes here, or import a UTF-8 text file.");
+        panel.add(new JLabel("Import a PDF or paste notes, then generate flashcards with AI."), BorderLayout.NORTH);
+        notes.setToolTipText("Review or edit imported notes before sending them to Gemini.");
         panel.add(new JScrollPane(notes), BorderLayout.CENTER);
         JPanel bottom = new JPanel(new GridLayout(0, 1, 0, 8));
-        bottom.add(new JLabel("Paste notes above, or import a .txt / .md file. AI creates a new set."));
-        bottom.add(actions(button("Import notes", this::importNotes), new JLabel("Difficulty"), difficulty,
+        bottom.add(new JLabel("Text PDFs up to 10 MB; .txt / .md up to 400 KB. AI creates a new set."));
+        bottom.add(actions(button("Import PDF / notes", this::importNotes)));
+        bottom.add(actions(new JLabel("Difficulty"), difficulty,
                 new JLabel("Questions"), count, button("Generate with AI", this::generate)));
         bottom.add(new JLabel("Generation sends these notes to Google Gemini. Review generated answers for accuracy."));
         panel.add(bottom, BorderLayout.SOUTH);
@@ -130,6 +124,7 @@ public final class StudyWindow extends JFrame {
 
     private JPanel editorPanel() {
         JPanel panel = page();
+        panel.add(new JLabel("Add a card, then enter its question and answer. No AI key needed."), BorderLayout.NORTH);
         cardList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         JScrollPane list = new JScrollPane(cardList);
         list.setPreferredSize(new Dimension(200, 200));
@@ -147,16 +142,10 @@ public final class StudyWindow extends JFrame {
         JPanel panel = page();
         JTextArea intro = area(8, 45);
         intro.setEditable(false); intro.setOpaque(false);
-        intro.setText("Practice at your pace\n\nFlip through flashcards, take a short-answer quiz, or retry missed questions.\n\n"
-                + "Quizzes are self-assessed: write your answer, reveal the reference, then mark whether you got it right. "
-                + "Missed and timed-out questions stay in Re-quiz until answered correctly.\n\n"
-                + "Difficulty controls AI generation. A time limit of 0 means untimed.");
+        intro.setText("Review at your pace\n\nFlip through your flashcards to review each question and answer.\n\n"
+                + "Create cards manually or generate them from your notes, then select Review flashcards.");
         panel.add(intro, BorderLayout.CENTER);
-        JPanel bottom = new JPanel(new GridLayout(0, 1, 0, 12));
-        bottom.add(actions(new JLabel("Time limit (minutes)"), minutes));
-        bottom.add(actions(button("Review flashcards", this::flashcards), button("Start quiz", () -> quiz(false)),
-                button("Re-quiz missed", () -> quiz(true))));
-        panel.add(bottom, BorderLayout.SOUTH);
+        panel.add(actions(button("Review flashcards", this::flashcards)), BorderLayout.SOUTH);
         return panel;
     }
 
@@ -229,7 +218,7 @@ public final class StudyWindow extends JFrame {
     }
     private void deleteSet() {
         if (!requireSet()) return;
-        if (JOptionPane.showConfirmDialog(this, "Delete this local set? Cloud copies are kept.", "Delete set",
+        if (JOptionPane.showConfirmDialog(this, "Delete this study set?", "Delete set",
                 JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
         int index = library.getSelectedIndex(); sets.remove(index); dirty = true;
         if (!sets.isEmpty()) library.setSelectedIndex(Math.min(index, sets.size() - 1));
@@ -272,14 +261,16 @@ public final class StudyWindow extends JFrame {
     private void importNotes() {
         if (!requireSet()) return;
         JFileChooser chooser = new JFileChooser();
-        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Text notes (.txt, .md)", "txt", "md"));
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PDF and text notes (.pdf, .txt, .md)", "pdf", "txt", "md"));
         if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
         if (!notes.getText().isBlank() && JOptionPane.showConfirmDialog(this, "Replace the notes in this set?",
                 "Import notes", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
-        try {
-            if (Files.size(chooser.getSelectedFile().toPath()) > 400000) throw new IllegalArgumentException("Choose a text file smaller than 400 KB.");
-            notes.setText(Files.readString(chooser.getSelectedFile().toPath()));
-        } catch (Exception e) { error(e); }
+        java.nio.file.Path path = chooser.getSelectedFile().toPath();
+        work("Reading notes…", () -> notesReader.read(path), text -> {
+            notes.setText(text);
+            notes.setCaretPosition(0);
+            status.setText("Imported " + path.getFileName() + ". Review the notes, then choose Generate with AI.");
+        });
     }
     private void generate() {
         if (!requireSet()) return;
@@ -289,43 +280,6 @@ public final class StudyWindow extends JFrame {
             StudySet set = output.studySet;
             sets.addElement(set); library.setSelectedValue(set, true); dirty = true;
             status.setText(output.message);
-        });
-    }
-    private void account() {
-        JTextField email = new JTextField(25); JPasswordField password = new JPasswordField(25);
-        JPanel form = new JPanel(new GridLayout(0, 1, 6, 6));
-        form.add(new JLabel("Email")); form.add(email); form.add(new JLabel("Password")); form.add(password);
-        int choice = JOptionPane.showOptionDialog(this, form, "Cloud account", JOptionPane.DEFAULT_OPTION,
-                JOptionPane.PLAIN_MESSAGE, null, new String[]{"Sign in", "Create account", "Sign out", "Cancel"}, "Sign in");
-        if (choice == 2) { accounts.signOut(); status.setText("Signed out. Local sets remain on this device."); return; }
-        if (choice != 0 && choice != 1) return;
-        char[] characters = password.getPassword(); String secret = new String(characters);
-        java.util.Arrays.fill(characters, '\0'); password.setText("");
-        String address = email.getText().trim();
-        work("Connecting to your account…", () -> { accounts.authenticate(address, secret, choice == 1); return address; },
-                user -> status.setText("Signed in as " + user + ". Cloud upload/download is manual."));
-    }
-    private void upload() {
-        try {
-            if (!save()) return;
-            List<StudySet> snapshot = snapshot();
-            work("Uploading study sets…", () -> { cloud.save(snapshot); return snapshot.size(); },
-                    size -> status.setText("Uploaded " + size + " sets to your account."));
-        } catch (Exception e) { error(e); }
-    }
-    private void download() {
-        if (!save()) return;
-        if (JOptionPane.showConfirmDialog(this, "Download cloud sets? Cloud versions replace local sets with the same ID. "
-                + "Other local sets are kept.", "Download study sets", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
-        work("Downloading study sets…", cloud::load, downloaded -> {
-            commit(); rendering = true; selected = null; selectedCard = null;
-            for (StudySet set : downloaded) {
-                for (int i = sets.size() - 1; i >= 0; i--) if (sets.get(i).id.equals(set.id)) sets.remove(i);
-                sets.addElement(set);
-            }
-            library.clearSelection(); rendering = false; render(); dirty = true;
-            if (!sets.isEmpty()) library.setSelectedIndex(0);
-            if (save()) status.setText("Downloaded " + downloaded.size() + " sets and saved locally.");
         });
     }
     private boolean canPractice() {
@@ -350,60 +304,5 @@ public final class StudyWindow extends JFrame {
                 button("Flip card", () -> { back[0] = !back[0]; show.run(); }),
                 button("Next", () -> { index[0] = (index[0] + 1) % selected.cards.size(); back[0] = false; show.run(); })), BorderLayout.SOUTH);
         show.run(); dialog.setContentPane(panel); dialog.pack(); dialog.setLocationRelativeTo(this); dialog.setVisible(true);
-    }
-    private void quiz(boolean missedOnly) {
-        if (!canPractice()) return;
-        QuizSession session;
-        try { session = quizzes.start(selected, missedOnly); }
-        catch (IllegalArgumentException e) { error(e); return; }
-        JDialog dialog = new JDialog(this, missedOnly ? "Re-quiz" : "Practice quiz", true);
-        JPanel panel = page(); JLabel progress = new JLabel(); JTextArea prompt = area(5, 48);
-        prompt.setEditable(false); JTextArea response = area(5, 48); JTextArea reference = area(5, 48); reference.setEditable(false);
-        JPanel body = new JPanel(new GridLayout(0, 1, 8, 10));
-        body.add(labeled("Question", new JScrollPane(prompt))); body.add(labeled("Your answer", new JScrollPane(response)));
-        body.add(labeled("Reference answer", new JScrollPane(reference)));
-        JButton reveal = new JButton("Reveal answer"); JButton right = new JButton("I got it right"); JButton wrong = new JButton("Needs practice");
-        int limit = (Integer) minutes.getValue(); long deadline = System.nanoTime() + limit * 60L * 1000000000L;
-        javax.swing.Timer timer = new javax.swing.Timer(250, null);
-        Runnable finish = () -> {
-            timer.stop(); dirty = true; dialog.dispose();
-            status.setText(session.correct() + " / " + session.total() + " correct. Missed questions are ready in Re-quiz.");
-            save();
-            message("Quiz complete: " + session.correct() + " / " + session.total()
-                    + " correct.\nMissed questions are available in Re-quiz.");
-        };
-        Runnable show = () -> {
-            prompt.setText(session.current().question); prompt.setCaretPosition(0);
-            response.setText(""); reference.setText("Write your answer, then reveal the reference.");
-            right.setEnabled(false); wrong.setEnabled(false); reveal.setEnabled(true);
-            progress.setText("Question " + (session.position() + 1) + " of " + session.total());
-            response.requestFocusInWindow();
-        };
-        Consumer<Boolean> assess = correct -> {
-            session.answer(correct); dirty = true;
-            if (session.finished()) finish.run(); else show.run();
-        };
-        reveal.addActionListener(e -> {
-            reference.setText(session.current().answer); reference.setCaretPosition(0);
-            reveal.setEnabled(false); right.setEnabled(true); wrong.setEnabled(true);
-        });
-        right.addActionListener(e -> assess.accept(true)); wrong.addActionListener(e -> assess.accept(false));
-        timer.addActionListener(e -> {
-            long remaining = Math.max(0, (deadline - System.nanoTime() + 999999999L) / 1000000000L);
-            if (remaining == 0) { session.expire(); finish.run(); }
-            else progress.setText("Question " + (session.position() + 1) + " of " + session.total()
-                    + " · " + remaining / 60 + ":" + String.format("%02d", remaining % 60) + " remaining");
-        });
-        dialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-        dialog.addWindowListener(new WindowAdapter() {
-            @Override public void windowClosing(WindowEvent e) {
-                if (JOptionPane.showConfirmDialog(dialog, "End this quiz? Unanswered questions will be marked for Re-quiz.",
-                        "End quiz", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) { session.expire(); finish.run(); }
-            }
-        });
-        panel.add(progress, BorderLayout.NORTH); panel.add(body, BorderLayout.CENTER);
-        panel.add(actions(reveal, right, wrong), BorderLayout.SOUTH);
-        dialog.setContentPane(panel); dialog.pack(); dialog.setLocationRelativeTo(this);
-        show.run(); if (limit > 0) timer.start(); dialog.setVisible(true);
     }
 }

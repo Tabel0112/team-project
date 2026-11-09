@@ -12,7 +12,6 @@ import org.example.studyapp.use_case.account.AccountInteractor;
 import org.example.studyapp.use_case.generate.GenerateInputData;
 import org.example.studyapp.use_case.generate.GenerateInteractor;
 import org.example.studyapp.use_case.generate.GenerateOutputData;
-import org.example.studyapp.use_case.quiz.QuizInteractor;
 import org.example.studyapp.use_case.storage.StorageInteractor;
 import org.example.studyapp.use_case.storage.StudySetDataAccessInterface;
 import org.junit.jupiter.api.Test;
@@ -91,19 +90,4 @@ class UseCaseTest {
         assertTrue(signedOut.get());
     }
 
-    @Test void requizSelectsOnlyMissedCardsAndRetainsTheirIdentity() {
-        StudySet set = new StudySet();
-        Card mastered = new Card("Mastered", "A");
-        Card missed = new Card("Missed", "B");
-        missed.missed = true;
-        set.cards.addAll(List.of(mastered, missed));
-        QuizInteractor interactor = new QuizInteractor();
-        org.example.studyapp.entity.QuizSession session = interactor.start(set, true);
-        assertEquals(1, session.total());
-        assertSame(missed, session.current());
-        session.answer(true);
-        assertFalse(missed.missed);
-        assertThrows(IllegalArgumentException.class, () -> interactor.start(set, true));
-        assertEquals(2, interactor.start(set, false).total());
-    }
 }

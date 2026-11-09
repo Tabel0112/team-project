@@ -8,7 +8,6 @@ import org.example.studyapp.data_access.*;
 import org.example.studyapp.interface_adapter.generate.GenerateController;
 import org.example.studyapp.interface_adapter.generate.GeneratePresenter;
 import org.example.studyapp.use_case.generate.GenerateInteractor;
-import org.example.studyapp.entity.QuizSession;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.*;
@@ -18,19 +17,31 @@ import static org.junit.jupiter.api.Assertions.*;
 class StudyAppTest {
     @TempDir Path directory;
 
-    @Test void savesAndRestoresMultipleSetsAndMissedAnswers() throws Exception {
+    @Test void savesAndRestoresMultipleSetsAndCards() throws Exception {
         StudySet first = new StudySet(); first.title = "Biology"; first.notes = "Cell notes";
-        first.cards.add(new Card("What stores DNA?", "The nucleus")); first.cards.get(0).missed = true;
+        first.cards.add(new Card("What stores DNA?", "The nucleus"));
         StudySet second = new StudySet(); second.title = "Algorithms";
         LocalStore store = new LocalStore(directory.resolve("nested/sets.json"));
         store.save(Arrays.asList(first, second));
         List<StudySet> loaded = store.load();
         assertEquals(2, loaded.size()); assertEquals(first.id, loaded.get(0).id);
         assertEquals("Cell notes", loaded.get(0).notes);
-        assertTrue(loaded.get(0).cards.get(0).missed);
+        assertEquals("What stores DNA?", loaded.get(0).cards.get(0).question);
         loaded.get(0).cards.get(0).answer = "Updated answer";
         store.save(loaded);
         assertEquals("Updated answer", store.load().get(0).cards.get(0).answer);
+    }
+    @Test void loadsLegacyCardsWithRetryStatus() throws Exception {
+        Path file = directory.resolve("legacy.json");
+        Files.writeString(file, "[{\"id\":\"" + UUID.randomUUID()
+                + "\",\"title\":\"Biology\",\"notes\":\"\",\"difficulty\":\"Medium\","
+                + "\"cards\":[{\"question\":\"Q\",\"answer\":\"A\",\"missed\":true}]}]");
+        LocalStore store = new LocalStore(file);
+        List<StudySet> loaded = store.load();
+        assertEquals("Q", loaded.get(0).cards.get(0).question);
+        assertEquals("A", loaded.get(0).cards.get(0).answer);
+        store.save(loaded);
+        assertEquals("A", store.load().get(0).cards.get(0).answer);
     }
     @Test void invalidSavePreservesPreviousData() throws Exception {
         LocalStore store = new LocalStore(directory.resolve("sets.json"));
@@ -49,23 +60,6 @@ class StudyAppTest {
         assertThrows(IllegalArgumentException.class, set::validate);
         set.id = UUID.randomUUID().toString(); set.cards.add(null);
         assertThrows(IllegalArgumentException.class, set::validate);
-    }
-    @Test void quizRecordsMistakesAndSuccessfulRetries() {
-        Card first = new Card("First", "A"); Card second = new Card("Second", "B");
-        QuizSession quiz = new QuizSession(Arrays.asList(first, second));
-        quiz.answer(false); quiz.answer(true);
-        assertTrue(quiz.finished()); assertEquals(1, quiz.correct());
-        assertTrue(first.missed); assertFalse(second.missed);
-        QuizSession retry = new QuizSession(List.of(first)); retry.answer(true);
-        assertFalse(first.missed);
-        assertThrows(IllegalStateException.class, () -> retry.answer(true));
-    }
-    @Test void timeoutMarksOnlyRemainingQuestionsMissed() {
-        Card first = new Card("First", "A"); Card second = new Card("Second", "B");
-        QuizSession quiz = new QuizSession(Arrays.asList(first, second));
-        quiz.answer(true); quiz.expire();
-        assertEquals(1, quiz.correct()); assertFalse(first.missed); assertTrue(second.missed);
-        assertTrue(quiz.finished()); assertThrows(IllegalArgumentException.class, () -> new QuizSession(List.of()));
     }
     @Test void readsQuotedEnvValuesAndReportsMissingKeys() throws Exception {
         Path file = directory.resolve(".env");

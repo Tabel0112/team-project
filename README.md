@@ -13,20 +13,16 @@ your team will find it easier to prepare for the final presentation
 at the end of the term.
 
 # Summary
-- Turns course materials into practice quizzes and flashcards to help students study.
-- A student uploads notes and chooses what to practice, and it creates flashcards and a practice quiz based off the notes.
-- Incorrectly answered questions on the practice quizzes will be stored in a "Re-quiz" section, so the user can practice the questions they got wrong.
-- Users' tests can be saved on an account which saves the previously created study materials to a cloud.
-- Users can create multiple sets of study materials on each account.
+- Create and edit flashcards manually or generate them from course notes and PDFs with AI.
+- Review question/answer cards at your own pace.
+- Organize multiple study sets and save them locally when closing the app.
 
 # User Stories
-1) As a student, I want to be able to take practice quizzes based off my notes so that I can study my course materials.
-2) As a student, I want to be able to review my notes on flashcards, so that I am ready to take a practice quiz.
-3) As a student, I want to be able to edit my existing practice quizzes and flashcards, so that I can keep them up to date and accurate.
-4) As a student, I want to be able to create multiple sets of study materials, so that I can study different subjects at the same time.
-5) As a student, I want to be able to save my study sets, so that I can go back to them whenever I want. 
-6) As a student, I want to be able to go back and retry missed quiz questions, so that I can learn from my mistakes.
-7) As a student, I want to be able to customize my practice quiz's difficulty and time limit, so that I can practice at a preferred level.
+1) As a student, I want to create flashcards manually so that I can study my own questions.
+2) As a student, I want to generate flashcards from PDFs and notes so that I can prepare materials quickly.
+3) As a student, I want to edit and review flashcards so that my study materials stay accurate.
+4) As a student, I want multiple study sets so that I can study different subjects separately.
+5) As a student, I want to save my study sets so that I can return to them later.
 
 # APIs
 - Google Gemini Generate Content API for note-based question/answer generation.
@@ -67,61 +63,50 @@ STUDY_APP_DATA_FILE=
   `~/.study-app/study-sets.json`. Use separate paths for different people sharing a device.
 
 System environment variables override `.env`. Restart after changing credentials.
-Manual card creation, flashcards, quizzes, and local saves work without credentials.
+Manual card creation, flashcards, and local saves work without credentials.
 
-## Cloud setup
+## Local saving
 
-1. Create a Supabase project and run [`supabase/schema.sql`](supabase/schema.sql) in its SQL editor.
-2. Enable email/password authentication. Set email confirmation preferences in Supabase Auth.
-3. Fill in the two Supabase values in `.env`, then restart.
-4. Choose **Account → Create account**. If confirmation is enabled, confirm the email,
-   then choose **Account → Sign in**.
-5. **Upload to cloud** saves all local sets to that account. **Download from cloud** merges
-   cloud sets into the local library; cloud versions replace sets with matching IDs after confirmation.
-
-Cloud sync is explicit rather than automatic. Sign in again if the access token expires.
-Sign out clears the in-memory session; local study files remain on the device. Local deletion
-keeps cloud copies, so downloading can restore them. There is no cloud-delete control yet.
-The schema enforces ownership using [Supabase row-level security](https://supabase.com/docs/guides/database/postgres/row-level-security).
+Changes save automatically when you close the app. If saving fails or a card is
+incomplete, the window stays open so you can correct the problem and close again.
+The desktop interface has no account, cloud transfer, or manual save buttons.
+The existing Supabase integration code and schema remain available for future use.
 
 ## Study workflow
 
-1. Choose **New set**, enter a subject title, and paste notes or import a UTF-8 `.txt` / `.md` file.
-   PDF, Word, and image extraction are not included.
-2. Select difficulty and 1–30 questions, then **Generate with AI**. This sends the notes to
+1. Choose **New set** and enter a subject title. In **Create & edit cards**, choose **Add card**
+   and enter a question and answer to create flashcards manually, without an AI key.
+2. For AI creation, open **PDF & AI generation**. Choose **Import PDF / notes** to import a
+   text-based PDF (up to 10 MB) or UTF-8 `.txt` / `.md` file (up to 400 KB), or paste notes.
+   Review the extracted text before generating. Notes are limited to 100,000 characters.
+   Scanned/image-only and password-protected PDFs need a text-based, unlocked copy.
+3. Select difficulty and 1–30 questions, then **Generate with AI**. This sends the notes to
    [Gemini's Generate Content API](https://ai.google.dev/api/generate-content).
    The generated cards go into a new set, preserving the original. Review AI answers before studying.
-3. In **Edit cards**, add, select, edit, or delete question/answer pairs. The same pairs power
-   both flashcards and practice quizzes. No AI key is needed to enter your own cards.
-4. In **Practice**, review flashcards or start a quiz. Set the time limit to 0 for untimed practice.
-5. Quizzes use short answers and self-assessment: write your answer, reveal the reference,
-   then choose **I got it right** or **Needs practice**. This avoids pretending to grade prose reliably.
-6. **Re-quiz missed** includes questions marked incorrect or left unanswered when time expires
-   or a quiz is ended early. A correct retry clears that question from Re-quiz.
-7. Choose **Save locally** after edits. Completed/ended quizzes save automatically. Closing with
-   unsaved changes prompts you to save. Upload separately when you want a cloud copy.
+4. In **Create & edit cards**, add, select, edit, or delete question/answer pairs.
+   No AI key is needed to enter your own cards.
+5. In **Flashcards**, choose **Review flashcards** to flip between questions and answers.
+6. Close the app to save changes automatically on this device.
 
 Local JSON writes replace the previous file atomically where supported. Invalid or unreadable
 saved data stops startup with an error and is preserved rather than silently overwritten.
-Local files contain your notes in plain text; cloud accounts do not isolate the shared local library.
-Cloud uploads contain the notes and cards. Keep private course materials on trusted devices/accounts.
+Local files contain your notes in plain text. Keep private course materials on trusted devices.
 
 ## Implementation and validation
 
 The packages follow the layers in the `ca-login` reference project. Each named class
 and interface has its own Java file under `org.example.studyapp`:
 
-- `entity`: `StudySet`, `Card`, and the framework-independent `QuizSession`.
+- `entity`: `StudySet` and `Card`.
 - `use_case/generate`: generation input/output boundaries, input/output data,
   interactor, and the generator data-access interface.
 - `use_case/account`: authentication input boundary, input data, interactor,
   and account data-access interface.
 - `use_case/storage`: load/save input boundary, interactor, and study-set data-access interface.
-- `use_case/quiz`: quiz input boundary and interactor for full quizzes and missed-card retries.
 - `interface_adapter`: feature controllers and the generation presenter.
 - `data_access`: local JSON storage, Supabase accounts/storage, Gemini generation,
   HTTP transport, and environment configuration.
-- `view`: Swing components, user interaction, background tasks, and dialog/timer lifecycle.
+- `view`: Swing components, user interaction, background tasks, and dialog lifecycle.
 - `app`: `Main` launches the app; `AppBuilder` selects and connects concrete dependencies.
 
 The dependency direction is `view → controller → input boundary/interactor → entity`.
@@ -135,10 +120,9 @@ message. Swing's existing worker delivers it to the UI thread. Load/save and acc
 operations use direct synchronous results/exceptions; they do not need shared mutable
 view models. Exceptions continue through the worker to the existing error dialogs.
 
-Quiz rules and missed-card selection live in the entity/use-case layers; Swing owns
-only the timer and interaction. Extracting `Card` does not change the saved JSON format.
+Existing saved study sets remain readable; obsolete retry-status fields are ignored.
 
-Run `mvn test` for storage round trips, invalid-data preservation, configuration parsing,
-quiz scoring, successful retries, timeout behavior, input validation, and use-case
-isolation with fake data-access implementations. Live API integration
-requires your own configured services. Team member ownership for user stories remains to be assigned.
+Run `mvn test` for storage round trips, legacy-data compatibility, invalid-data preservation,
+configuration parsing, PDF/text import, input validation, and use-case isolation with fake
+data-access implementations. Live API integration requires your own configured services.
+Team member ownership for user stories remains to be assigned.
