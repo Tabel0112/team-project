@@ -261,10 +261,7 @@ Requires Java 11+ and Maven. From the project directory:
 ```sh
 mvn compile
 java -cp target/classes org.example.studyapp.app.Main
-```
-
-The frontend contains three empty tabs: Study sets, Upload PDF, and Review.
-No page content or application features are implemented.
+``
 
 ---
 ## Notes
