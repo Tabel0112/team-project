@@ -62,11 +62,19 @@ The Flashcards application turns course materials into practice quizzes and flas
 ---
 ## API Usage
 
-**API Name:** AI API (OpenAI/Gemini), Database API to store data (Supabase)
+**APIs:** OpenAI/Gemini for flashcard generation, and Supabase for data storage and authentication.
 
-**Documentation:** [Link]
+**Documentation:**
+
+- [Gemini API — Content Generation Reference](https://aistudio.google.com/api-reference/generate-content?hl=en)
+- [Supabase API — Database Documentation](https://supabase.com/docs/guides/api)
+- [Supabase Auth — Authentication Documentation](https://supabase.com/docs/guides/auth)
 
 **How it is used in the program:**
+
+- **AI API (OpenAI/Gemini):** The application will send text from uploaded lecture notes to the AI API to generate questions and answers, which will be used to create flashcards for the user to review and edit.
+- **Supabase Database:** The application will save and retrieve each user's study sets and flashcards. Changes to saved cards and sets will be stored so users can access their updated study materials later.
+- **Supabase Auth:** Users will be able to sign up and log in to their accounts. Their saved study sets and flashcards will be linked to their accounts so they can return to them in later study sessions.
 
 ---
 ## Design Diagrams
