@@ -51,10 +51,13 @@
 ---
 ## Entities
 
-### Entity 1
+### Flashcard
 
-### Entity 2
-(Add additional entities as needed.)
+### StudySet
+
+### CardsList
+
+### User
 
 ---
 ## API Usage
