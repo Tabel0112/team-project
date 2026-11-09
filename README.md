@@ -11,6 +11,60 @@ The readme should include information such as:
 By keeping this README up-to-date,
 your team will find it easier to prepare for the final presentation
 at the end of the term.
+# Project Name
+## Team Information
+### Team Members
+- Name
+- Name
+- Name
+- Name
+- Name
+- Name
+---
+## Project Description
+### Domain
+[Project description]
+---
+## User Stories
+### User Story 1: As a student, I want to be able to create flashcards, so that I can review course material.
+### User Story 2: As a student, I want to upload lecture notes and have flashcards made for me, to make studying more efficient.
+### User Story 3: As a student, I want to be able to edit my existing practice flashcards, so that I can keep them up to date and accurate.
+### User Story 4: As a student, I want to be able to create multiple sets of study materials, so that I can study different subjects at the same time.
+### User Story 5: As a student, I want to be able to save my study sets, so that I can go back to them whenever I want.
+---
+## Use Cases
+### Use Case 1
+### Use Case 2
+### Use Case 3
+(Add additional use cases as needed.)
+---
+## Minimal Viable Product (MVP)
+| Team Member | MVP Use Case |
+|-------------|--------------|
+| Name | Use Case |
+| Name | Use Case |
+| Name | Use Case |
+---
+## Entities
+###
+
+### Entity 2
+(Add additional entities as needed.)
+---
+## API Usage
+**API Name:**
+**Documentation:** [Link]
+**How it is used in the program:**
+---
+## Design Diagrams
+### UML Class Diagram
+### Sequence Diagrams
+---
+## How to Run
+[Instructions for running the program.]
+---
+## Notes
+[Any additional project information.]
 
 # Summary
 - Turns course materials into practice quizzes and flashcards to help students study.
@@ -20,11 +74,6 @@ at the end of the term.
 - Users can create multiple sets of study materials on each account.
 
 # User Stories
-1) As a student, I want to be able to create flashcards, so that I can review course material.
-2) As a student, I want to upload lecture notes and have flashcards made for me, to make studying more efficient.
-3) As a student, I want to be able to edit my existing practice flashcards, so that I can keep them up to date and accurate.
-4) As a student, I want to be able to create multiple sets of study materials, so that I can study different subjects at the same time.
-5) As a student, I want to be able to save my study sets, so that I can go back to them whenever I want.
 
 # APIs (WIP)
 - AI API (OpenAI/Gemini)
