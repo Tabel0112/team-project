@@ -19,7 +19,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 ---
 ## User Stories
 
-### User Story 1: As a student, I want to be able to create flashcards, so that I can review course material.
+### User Story 1: As a student, I want to be able to create flashcards, so that I can .
 
 ### User Story 2: As a student, I want to upload lecture notes and have flashcards made for me, to make studying more efficient.
 
