@@ -23,10 +23,12 @@ public class Main {
 
     final AppBuilder appBuilder = new AppBuilder();
     final JFrame application = appBuilder
-        .addCreateStudySetView()
-        .addStudySetView()
-        .addCreateStudySetUseCase()
-        .build();
+            .addCreateStudySetView()
+            .addStudySetView()
+            .addAddFlashcardView()
+            .addCreateStudySetUseCase()
+            .addAddFlashcardUseCase()
+            .build();
 
     application.setLocationRelativeTo(null);
     application.setVisible(true);

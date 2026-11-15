@@ -3,12 +3,17 @@ package app;
 import data_access.InMemoryStudySetDataAccessObject;
 import entity.StudySetFactory;
 import interface_adapter.ViewManagerModel;
+import interface_adapter.add_flashcard.AddFlashcardController;
+import interface_adapter.add_flashcard.AddFlashcardPresenter;
+import interface_adapter.add_flashcard.AddFlashcardViewModel;
 import interface_adapter.create_study_set.CreateStudySetController;
 import interface_adapter.create_study_set.CreateStudySetPresenter;
 import interface_adapter.create_study_set.CreateStudySetState;
 import interface_adapter.create_study_set.CreateStudySetViewModel;
 import interface_adapter.study_set.StudySetViewModel;
+import use_case.add_flashcard.AddFlashcardInteractor;
 import use_case.create_study_set.CreateStudySetInteractor;
+import view.AddFlashcardView;
 import view.CreateStudySetView;
 import view.StudySetView;
 import view.ViewManager;
@@ -30,12 +35,14 @@ public class AppBuilder {
   private final ViewManagerModel viewManagerModel = new ViewManagerModel();
   private final ViewManager viewManager = new ViewManager(cardPanel, cardLayout, viewManagerModel);
   private final InMemoryStudySetDataAccessObject studySetDao =
-      new InMemoryStudySetDataAccessObject();
+          new InMemoryStudySetDataAccessObject();
 
   private CreateStudySetViewModel createStudySetViewModel;
   private StudySetViewModel studySetViewModel;
   private CreateStudySetView createStudySetView;
   private StudySetView studySetView;
+  private AddFlashcardViewModel addFlashcardViewModel;
+  private AddFlashcardView addFlashcardView;
 
   /**
    * Creates an empty builder.
@@ -72,25 +79,68 @@ public class AppBuilder {
   public AppBuilder addCreateStudySetView() {
     createStudySetViewModel = new CreateStudySetViewModel();
     createStudySetView = new CreateStudySetView(
-        createStudySetViewModel,
-        this::currentUserId,
-        this::openStudySet);
+            createStudySetViewModel,
+            this::currentUserId,
+            this::openStudySet);
     cardPanel.add(createStudySetView, CreateStudySetView.VIEW_NAME);
     return this;
   }
 
   /**
-   * Creates the study set view and its view model. Its Back button returns to the
-   * create study set view.
+   * Creates the study set view and its view model. Its Add Flashcard button opens
+   * the add flashcard view, and its Back button returns to the create study set view.
    *
    * @return this builder, for chaining
    */
   public AppBuilder addStudySetView() {
     studySetViewModel = new StudySetViewModel();
     studySetView = new StudySetView(
-        studySetViewModel,
-        () -> viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME));
+            studySetViewModel,
+            this::openAddFlashcardForm,
+            () -> viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME));
     cardPanel.add(studySetView, StudySetView.VIEW_NAME);
+    return this;
+  }
+
+  /**
+   * Clears the study set view's confirmation message and shows the add flashcard form.
+   */
+  private void openAddFlashcardForm() {
+    studySetViewModel.getState().setMessage("");
+    studySetViewModel.firePropertyChanged();
+    viewManagerModel.setActiveView(AddFlashcardView.VIEW_NAME);
+  }
+
+  /**
+   * Creates the add flashcard view and its view model. It adds flashcards to the
+   * study set that is open in the study set view, and its Cancel button returns there.
+   * Requires {@link #addStudySetView()} to have been called.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addAddFlashcardView() {
+    addFlashcardViewModel = new AddFlashcardViewModel();
+    addFlashcardView = new AddFlashcardView(
+            addFlashcardViewModel,
+            () -> studySetViewModel.getState().getStudySetId(),
+            () -> viewManagerModel.setActiveView(StudySetView.VIEW_NAME));
+    cardPanel.add(addFlashcardView, AddFlashcardView.VIEW_NAME);
+    return this;
+  }
+
+  /**
+   * Creates the Add Flashcard interactor, presenter and controller, and gives the
+   * controller to the view. Requires {@link #addCreateStudySetView()},
+   * {@link #addStudySetView()} and {@link #addAddFlashcardView()} to have been called.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addAddFlashcardUseCase() {
+    final AddFlashcardPresenter presenter = new AddFlashcardPresenter(
+            addFlashcardViewModel, studySetViewModel, createStudySetViewModel, viewManagerModel);
+    final AddFlashcardInteractor interactor = new AddFlashcardInteractor(studySetDao, presenter);
+    final AddFlashcardController controller = new AddFlashcardController(interactor);
+    addFlashcardView.setController(controller);
     return this;
   }
 
@@ -103,9 +153,9 @@ public class AppBuilder {
    */
   public AppBuilder addCreateStudySetUseCase() {
     final CreateStudySetPresenter presenter = new CreateStudySetPresenter(
-        createStudySetViewModel, studySetViewModel, viewManagerModel);
+            createStudySetViewModel, studySetViewModel, viewManagerModel);
     final CreateStudySetInteractor interactor =
-        new CreateStudySetInteractor(studySetDao, presenter, new StudySetFactory());
+            new CreateStudySetInteractor(studySetDao, presenter, new StudySetFactory());
     final CreateStudySetController controller = new CreateStudySetController(interactor);
     createStudySetView.setController(controller);
     return this;

@@ -1,6 +1,7 @@
 package data_access;
 
 import entity.StudySet;
+import use_case.add_flashcard.AddFlashcardDataAccessInterface;
 import use_case.create_study_set.CreateStudySetDataAccessInterface;
 
 import java.util.ArrayList;
@@ -12,7 +13,8 @@ import java.util.Map;
  * Temporary in-memory storage for study sets. The link between a user and
  * their study sets lives here, not in the {@link StudySet} entity.
  */
-public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAccessInterface {
+public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAccessInterface,
+        AddFlashcardDataAccessInterface {
   private final Map<String, List<StudySet>> setsByUser = new HashMap<>();
 
   /**
@@ -25,7 +27,7 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
   @Override
   public boolean existsByName(String userId, String name) {
     return setsByUser.getOrDefault(userId, List.of()).stream()
-        .anyMatch(s -> s.getName().equalsIgnoreCase(name));
+            .anyMatch(s -> s.getName().equalsIgnoreCase(name));
   }
 
   /**
@@ -48,5 +50,23 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
   @Override
   public List<StudySet> getStudySets(String userId) {
     return List.copyOf(setsByUser.getOrDefault(userId, List.of()));
+  }
+
+  /**
+   * Finds a study set by its id, among every user's study sets.
+   *
+   * @param studySetId the id of the study set
+   * @return the study set, or null if there is no study set with that id
+   */
+  @Override
+  public StudySet getStudySetById(String studySetId) {
+    for (List<StudySet> sets : setsByUser.values()) {
+      for (StudySet studySet : sets) {
+        if (studySet.getId().equals(studySetId)) {
+          return studySet;
+        }
+      }
+    }
+    return null;
   }
 }

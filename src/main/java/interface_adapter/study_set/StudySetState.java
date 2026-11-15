@@ -10,6 +10,7 @@ public class StudySetState {
   private String studySetId = "";
   private String name = "";
   private int cardCount = 0;
+  private String message = "";
 
   /**
    * Creates a state with no study set open.
@@ -27,6 +28,7 @@ public class StudySetState {
     this.studySetId = studySetId;
     this.name = name;
     this.cardCount = cardCount;
+    this.message = "";
   }
 
   /**
@@ -63,4 +65,18 @@ public class StudySetState {
    * @param cardCount how many flashcards the open study set contains
    */
   public void setCardCount(int cardCount) { this.cardCount = cardCount; }
+
+  /**
+   * Returns the confirmation message to show, such as after adding a flashcard.
+   *
+   * @return the message, or an empty string if there is none
+   */
+  public String getMessage() { return message; }
+
+  /**
+   * Sets the confirmation message to show.
+   *
+   * @param message the message, or an empty string to clear it
+   */
+  public void setMessage(String message) { this.message = message; }
 }
