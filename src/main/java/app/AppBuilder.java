@@ -11,11 +11,16 @@ import interface_adapter.create_study_set.CreateStudySetPresenter;
 import interface_adapter.create_study_set.CreateStudySetState;
 import interface_adapter.create_study_set.CreateStudySetViewModel;
 import interface_adapter.study_set.StudySetViewModel;
+import interface_adapter.view_flashcards.ViewFlashcardsController;
+import interface_adapter.view_flashcards.ViewFlashcardsPresenter;
+import interface_adapter.view_flashcards.ViewFlashcardsViewModel;
 import use_case.add_flashcard.AddFlashcardInteractor;
 import use_case.create_study_set.CreateStudySetInteractor;
+import use_case.view_flashcards.ViewFlashcardsInteractor;
 import view.AddFlashcardView;
 import view.CreateStudySetView;
 import view.StudySetView;
+import view.ViewFlashcardsView;
 import view.ViewManager;
 
 import javax.swing.JFrame;
@@ -43,6 +48,7 @@ public class AppBuilder {
   private StudySetView studySetView;
   private AddFlashcardViewModel addFlashcardViewModel;
   private AddFlashcardView addFlashcardView;
+  private ViewFlashcardsViewModel viewFlashcardsViewModel;
 
   /**
    * Creates an empty builder.
@@ -141,6 +147,33 @@ public class AppBuilder {
     final AddFlashcardInteractor interactor = new AddFlashcardInteractor(studySetDao, presenter);
     final AddFlashcardController controller = new AddFlashcardController(interactor);
     addFlashcardView.setController(controller);
+    return this;
+  }
+
+  /**
+   * Creates the view flashcards pop-up and its view model. The pop-up is shown
+   * over the study set view. Requires {@link #addStudySetView()} to have been called.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addViewFlashcardsView() {
+    viewFlashcardsViewModel = new ViewFlashcardsViewModel();
+    new ViewFlashcardsView(viewFlashcardsViewModel, studySetView);
+    return this;
+  }
+
+  /**
+   * Creates the View Flashcards interactor, presenter and controller, and gives the
+   * controller to the study set view. Requires {@link #addStudySetView()} and
+   * {@link #addViewFlashcardsView()} to have been called.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addViewFlashcardsUseCase() {
+    final ViewFlashcardsPresenter presenter = new ViewFlashcardsPresenter(viewFlashcardsViewModel);
+    final ViewFlashcardsInteractor interactor = new ViewFlashcardsInteractor(studySetDao, presenter);
+    final ViewFlashcardsController controller = new ViewFlashcardsController(interactor);
+    studySetView.setViewFlashcardsController(controller);
     return this;
   }
 
