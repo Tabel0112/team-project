@@ -1,5 +1,6 @@
 package use_case.create_study_set;
 
+import entity.Flashcard;
 import entity.StudySet;
 import entity.StudySetFactory;
 
@@ -55,7 +56,23 @@ public class CreateStudySetInteractor implements CreateStudySetInputBoundary {
       return;
     }
 
+    save(userId, name, List.of());
+  }
+
+  public void createFromNotes(String userId, String baseName, List<Flashcard> cards) {
+    if (cards.isEmpty()) {
+      throw new IllegalArgumentException("A generated set needs at least one flashcard.");
+    }
+    String name = baseName;
+    for (int suffix = 2; dataAccess.existsByName(userId, name); suffix++) {
+      name = baseName + " (" + suffix + ")";
+    }
+    save(userId, name, cards);
+  }
+
+  private void save(String userId, String name, List<Flashcard> cards) {
     final StudySet studySet = factory.create(name);         // step 5
+    cards.forEach(studySet.getCardsList()::addCard);
     dataAccess.save(userId, studySet);
 
     final List<CreateStudySetOutputData.Item> items = new ArrayList<>();

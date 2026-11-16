@@ -45,6 +45,7 @@ public class AppBuilder {
   private final InMemoryStudySetDataAccessObject studySetDao =
           new InMemoryStudySetDataAccessObject();
 
+  private CreateStudySetInteractor createStudySet;
   private CreateStudySetViewModel createStudySetViewModel;
   private StudySetViewModel studySetViewModel;
   private CreateStudySetView createStudySetView;
@@ -190,9 +191,9 @@ public class AppBuilder {
   public AppBuilder addCreateStudySetUseCase() {
     final CreateStudySetPresenter presenter = new CreateStudySetPresenter(
             createStudySetViewModel, studySetViewModel, viewManagerModel);
-    final CreateStudySetInteractor interactor =
+    createStudySet =
             new CreateStudySetInteractor(studySetDao, presenter, new StudySetFactory());
-    final CreateStudySetController controller = new CreateStudySetController(interactor);
+    final CreateStudySetController controller = new CreateStudySetController(createStudySet);
     createStudySetView.setController(controller);
     return this;
   }
@@ -203,17 +204,25 @@ public class AppBuilder {
    * @return the window, not yet visible
    */
   public JFrame build() {
-    final JTabbedPane pages = new JTabbedPane();
-    pages.addTab("Study sets", cardPanel);
-    pages.addTab("Upload PDF", new UploadNotesPanel(new UploadNotesInteractor(new PdfBoxTextReader())));
-    pages.addTab("Review", new JPanel());       // placeholder for a future use case
-
     final JFrame frame = new JFrame("Study App");
     frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-    frame.add(pages);
+    frame.add(buildPages(new UploadNotesInteractor(new PdfBoxTextReader())));
     frame.setMinimumSize(new Dimension(900, 620));
     frame.setSize(1100, 720);
-    viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
     return frame;
+  }
+
+  public JTabbedPane buildPages(UploadNotesInteractor uploadNotes) {
+    final JTabbedPane pages = new JTabbedPane();
+    pages.addTab("Study sets", cardPanel);
+    pages.addTab("Upload PDF", new UploadNotesPanel(uploadNotes, (title, cards) -> {
+      createStudySet.createFromNotes(currentUserId(), title, cards);
+      viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
+      pages.setSelectedComponent(cardPanel);
+    }));
+    pages.addTab("Review", new JPanel());       // placeholder for a future use case
+
+    viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
+    return pages;
   }
 }
