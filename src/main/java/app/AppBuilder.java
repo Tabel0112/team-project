@@ -1,6 +1,7 @@
 package app;
 
 import data_access.InMemoryStudySetDataAccessObject;
+import data_access.PdfBoxTextReader;
 import entity.StudySetFactory;
 import interface_adapter.ViewManagerModel;
 import interface_adapter.add_flashcard.AddFlashcardController;
@@ -13,9 +14,11 @@ import interface_adapter.create_study_set.CreateStudySetViewModel;
 import interface_adapter.study_set.StudySetViewModel;
 import use_case.add_flashcard.AddFlashcardInteractor;
 import use_case.create_study_set.CreateStudySetInteractor;
+import use_case.upload_notes.UploadNotesInteractor;
 import view.AddFlashcardView;
 import view.CreateStudySetView;
 import view.StudySetView;
+import view.UploadNotesPanel;
 import view.ViewManager;
 
 import javax.swing.JFrame;
@@ -169,7 +172,7 @@ public class AppBuilder {
   public JFrame build() {
     final JTabbedPane pages = new JTabbedPane();
     pages.addTab("Study sets", cardPanel);
-    pages.addTab("Upload PDF", new JPanel());   // placeholder for a future use case
+    pages.addTab("Upload PDF", new UploadNotesPanel(new UploadNotesInteractor(new PdfBoxTextReader())));
     pages.addTab("Review", new JPanel());       // placeholder for a future use case
 
     final JFrame frame = new JFrame("Study App");

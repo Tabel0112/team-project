@@ -259,8 +259,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 Requires Java 11+ and Maven. From the project directory:
 
 ```sh
-mvn compile
-java -cp target/classes org.example.studyapp.app.Main
+mvn compile exec:java "-Dexec.mainClass=app.Main"
 ``
 
 ---

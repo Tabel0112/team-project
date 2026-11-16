@@ -1,6 +1,8 @@
 package org.example.studyapp.app;
 
 import javax.swing.JFrame;
+import data_access.PdfBoxTextReader;
+import use_case.upload_notes.UploadNotesInteractor;
 import org.example.studyapp.ui.StudyAppPanel;
 import java.awt.Dimension;
 import javax.swing.SwingUtilities;
@@ -20,7 +22,7 @@ public final class Main {
 
         JFrame frame = new JFrame("Study App");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.add(new StudyAppPanel());
+        frame.add(new StudyAppPanel(new UploadNotesInteractor(new PdfBoxTextReader())));
         frame.setMinimumSize(new Dimension(900, 620));
         frame.setSize(1100, 720);
         frame.setLocationRelativeTo(null);
