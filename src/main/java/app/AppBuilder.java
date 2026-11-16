@@ -17,19 +17,13 @@ import interface_adapter.view_flashcards.ViewFlashcardsPresenter;
 import interface_adapter.view_flashcards.ViewFlashcardsViewModel;
 import use_case.add_flashcard.AddFlashcardInteractor;
 import use_case.create_study_set.CreateStudySetInteractor;
-<<<<<<< HEAD
 import use_case.upload_notes.UploadNotesInteractor;
 import view.AddFlashcardView;
 import view.CreateStudySetView;
 import view.StudySetView;
 import view.UploadNotesPanel;
-=======
 import use_case.view_flashcards.ViewFlashcardsInteractor;
-import view.AddFlashcardView;
-import view.CreateStudySetView;
-import view.StudySetView;
 import view.ViewFlashcardsView;
->>>>>>> main
 import view.ViewManager;
 
 import javax.swing.JFrame;

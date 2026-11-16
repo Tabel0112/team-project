@@ -1,6 +1,9 @@
 package view;
 
+import data_access.GeminiQuestions;
+import entity.Flashcard;
 import java.awt.BorderLayout;
+import java.util.List;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutionException;
 import javax.swing.*;
@@ -8,7 +11,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import use_case.upload_notes.UploadNotesInteractor;
 
 public final class UploadNotesPanel extends JPanel {
-    private final JButton choose = new JButton("Choose PDF");
+    private final JButton choose = new JButton("Generate questions from PDF");
     private final JLabel status = new JLabel(" ");
     private final JTextArea preview = new JTextArea();
 
@@ -35,11 +38,16 @@ public final class UploadNotesPanel extends JPanel {
     private void read(UploadNotesInteractor uploadNotes, Path file) {
         choose.setEnabled(false);
         preview.setText("");
-        status.setText("Reading " + file.getFileName() + "...");
+        status.setText("Generating questions with Gemini...");
         new SwingWorker<String, Void>() {
             @Override
             protected String doInBackground() throws Exception {
-                return uploadNotes.execute(file);
+                List<Flashcard> cards = new GeminiQuestions().generate(uploadNotes.execute(file));
+                StringBuilder display = new StringBuilder();
+                for (int i = 0; i < cards.size(); i++) {
+                    display.append(i + 1).append(". ").append(cards.get(i).getQuestion()).append("\n\n");
+                }
+                return display.toString();
             }
 
             @Override
@@ -47,7 +55,7 @@ public final class UploadNotesPanel extends JPanel {
                 try {
                     preview.setText(get());
                     preview.setCaretPosition(0);
-                    status.setText("Extracted text from " + file.getFileName());
+                    status.setText("Questions from " + file.getFileName());
                 } catch (ExecutionException e) {
                     status.setText(e.getCause().getMessage());
                 } catch (InterruptedException e) {
