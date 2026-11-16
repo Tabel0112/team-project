@@ -2,6 +2,7 @@ package view;
 
 import interface_adapter.study_set.StudySetState;
 import interface_adapter.study_set.StudySetViewModel;
+import interface_adapter.view_flashcards.ViewFlashcardsController;
 
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -22,6 +23,7 @@ public class StudySetView extends JPanel implements PropertyChangeListener {
   private final JLabel nameLabel = new JLabel(" ");
   private final JLabel countLabel = new JLabel(" ");
   private final JLabel messageLabel = new JLabel(" ");
+  private ViewFlashcardsController viewFlashcardsController;
 
   /**
    * Builds the view.
@@ -41,6 +43,10 @@ public class StudySetView extends JPanel implements PropertyChangeListener {
     final JButton addFlashcard = new JButton("Add Flashcard");
     addFlashcard.addActionListener(e -> onAddFlashcard.run());
 
+    final JButton viewFlashcards = new JButton("View Flashcards");
+    viewFlashcards.addActionListener(
+        e -> viewFlashcardsController.execute(viewModel.getState().getStudySetId()));
+
     final JButton back = new JButton("Back");
     back.addActionListener(e -> onBack.run());
 
@@ -48,7 +54,17 @@ public class StudySetView extends JPanel implements PropertyChangeListener {
     add(countLabel);
     add(messageLabel);
     add(addFlashcard);
+    add(viewFlashcards);
     add(back);
+  }
+
+  /**
+   * Sets the controller that handles the View Flashcards button.
+   *
+   * @param viewFlashcardsController the controller to call when the user clicks View Flashcards
+   */
+  public void setViewFlashcardsController(ViewFlashcardsController viewFlashcardsController) {
+    this.viewFlashcardsController = viewFlashcardsController;
   }
 
   /**

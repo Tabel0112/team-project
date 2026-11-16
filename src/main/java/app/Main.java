@@ -26,8 +26,10 @@ public class Main {
             .addCreateStudySetView()
             .addStudySetView()
             .addAddFlashcardView()
+        .addViewFlashcardsView()
             .addCreateStudySetUseCase()
             .addAddFlashcardUseCase()
+        .addViewFlashcardsUseCase()
             .build();
 
     application.setLocationRelativeTo(null);
