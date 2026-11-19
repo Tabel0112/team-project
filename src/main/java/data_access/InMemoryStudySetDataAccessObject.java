@@ -5,6 +5,7 @@ import use_case.add_flashcard.AddFlashcardDataAccessInterface;
 import use_case.create_study_set.CreateStudySetDataAccessInterface;
 import use_case.delete_flashcard.DeleteFlashcardDataAccessInterface;
 import use_case.edit_flashcard.EditFlashcardDataAccessInterface;
+import use_case.reorder_flashcards.ReorderFlashcardsDataAccessInterface;
 import use_case.view_flashcards.ViewFlashcardsDataAccessInterface;
 
 import java.util.ArrayList;
@@ -18,7 +19,8 @@ import java.util.Map;
  */
 public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAccessInterface,
         AddFlashcardDataAccessInterface, ViewFlashcardsDataAccessInterface,
-        EditFlashcardDataAccessInterface, DeleteFlashcardDataAccessInterface {
+        EditFlashcardDataAccessInterface, DeleteFlashcardDataAccessInterface,
+        ReorderFlashcardsDataAccessInterface {
   private final Map<String, List<StudySet>> setsByUser = new HashMap<>();
 
   /**

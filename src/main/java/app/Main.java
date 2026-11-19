@@ -33,6 +33,7 @@ public class Main {
         .addViewFlashcardsUseCase()
             .addEditFlashcardUseCase()
             .addDeleteFlashcardUseCase()
+            .addReorderFlashcardsUseCase()
             .build();
 
     application.setLocationRelativeTo(null);
