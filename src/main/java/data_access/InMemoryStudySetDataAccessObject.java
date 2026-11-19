@@ -6,6 +6,7 @@ import use_case.create_study_set.CreateStudySetDataAccessInterface;
 import use_case.delete_flashcard.DeleteFlashcardDataAccessInterface;
 import use_case.edit_flashcard.EditFlashcardDataAccessInterface;
 import use_case.practice_study_set.PracticeStudySetDataAccessInterface;
+import use_case.reorder_flashcards.ReorderFlashcardsDataAccessInterface;
 import use_case.view_flashcards.ViewFlashcardsDataAccessInterface;
 import use_case.cloud.*;
 import java.util.ArrayList;
@@ -17,7 +18,8 @@ import java.util.Map;
 public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAccessInterface,
     AddFlashcardDataAccessInterface, ViewFlashcardsDataAccessInterface,
     EditFlashcardDataAccessInterface, DeleteFlashcardDataAccessInterface,
-    PracticeStudySetDataAccessInterface, WorkingStudySets {
+    PracticeStudySetDataAccessInterface, ReorderFlashcardsDataAccessInterface,
+    WorkingStudySets {
   private final Map<String, Map<String, StudySet>> sets = new LinkedHashMap<>();
   private final Map<String, Map<String, SetSummary>> indexes = new LinkedHashMap<>();
   private final Map<String, SetSnapshot> baselines = new LinkedHashMap<>();

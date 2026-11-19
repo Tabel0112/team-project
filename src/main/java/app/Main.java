@@ -35,6 +35,7 @@ public class Main {
             .addEditFlashcardUseCase()
             .addDeleteFlashcardUseCase()
             .addPracticeStudySetUseCase()
+            .addReorderFlashcardsUseCase()
             .build();
 
     application.setLocationRelativeTo(null);

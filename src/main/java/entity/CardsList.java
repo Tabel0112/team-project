@@ -42,6 +42,18 @@ public class CardsList {
   }
 
   /**
+   * Moves a flashcard to a new position. The flashcards in between shift by one
+   * place to make room.
+   *
+   * @param fromIndex the current position of the flashcard, starting at 0
+   * @param toIndex   the position to move it to, starting at 0
+   * @throws IndexOutOfBoundsException if either position is outside the list
+   */
+  public void moveCard(int fromIndex, int toIndex) {
+    cards.add(toIndex, cards.remove(fromIndex));
+  }
+
+  /**
    * Returns the flashcards in this list.
    *
    * @return an unmodifiable view of the flashcards

@@ -36,6 +36,7 @@ public class ViewFlashcardsPresenter implements ViewFlashcardsOutputBoundary {
     final ViewFlashcardsState state = viewModel.getState();
     state.setStudySetName(outputData.getStudySetName());
     state.setCards(items);
+    state.setSelectedIndex(-1);
     state.setErrorMessage(null);
     viewModel.firePropertyChanged();
   }

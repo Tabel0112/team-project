@@ -117,8 +117,9 @@ The Flashcards application turns course materials into practice quizzes and flas
 - 5a. A field is empty: the system shows an error message and asks the user to fix it (return to step 3).
 - 4a. The user cancels: the system discards the changes and the flashcard stays as it was.
 - 3a. The user chooses to delete the flashcard instead ("Delete" on the edit form): the system asks for confirmation, then removes it from the study set and returns to the study set with a confirmation message. If the user does not confirm, the flashcard is kept and the edit form stays open.
+- 3b. The user chooses to change the order of the flashcards instead ("Move Up" / "Move Down" in "View Flashcards"): the system moves the selected flashcard one place, shows the new order with the moved flashcard still selected, and keeps that order for later review. The user can repeat this until the flashcards are in the order they want.
 
-**Success outcome:** The flashcard in the study set reflects the user's edits.
+**Success outcome:** The flashcard in the study set reflects the user's edits, including any change to its position in the study set.
 
 ---
 
