@@ -3,6 +3,7 @@ package data_access;
 import entity.StudySet;
 import use_case.add_flashcard.AddFlashcardDataAccessInterface;
 import use_case.create_study_set.CreateStudySetDataAccessInterface;
+import use_case.edit_flashcard.EditFlashcardDataAccessInterface;
 import use_case.view_flashcards.ViewFlashcardsDataAccessInterface;
 import use_case.cloud.*;
 import java.util.ArrayList;
@@ -17,6 +18,9 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
   private final Map<String, Map<String, SetSummary>> indexes = new LinkedHashMap<>();
   private final Map<String, SetSnapshot> baselines = new LinkedHashMap<>();
   private final Map<String, SaveRequest> pending = new LinkedHashMap<>();
+        AddFlashcardDataAccessInterface, ViewFlashcardsDataAccessInterface,
+        EditFlashcardDataAccessInterface {
+  private final Map<String, List<StudySet>> setsByUser = new HashMap<>();
 
   private String key(String user, String id) { return user + "/" + id; }
 
