@@ -32,6 +32,7 @@ public class Main {
             .addAddFlashcardUseCase()
         .addViewFlashcardsUseCase()
             .addEditFlashcardUseCase()
+            .addDeleteFlashcardUseCase()
             .build();
 
     application.setLocationRelativeTo(null);
