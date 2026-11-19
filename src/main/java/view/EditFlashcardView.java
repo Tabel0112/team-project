@@ -1,5 +1,6 @@
 package view;
 
+import interface_adapter.delete_flashcard.DeleteFlashcardController;
 import interface_adapter.edit_flashcard.EditFlashcardController;
 import interface_adapter.edit_flashcard.EditFlashcardState;
 import interface_adapter.edit_flashcard.EditFlashcardViewModel;
@@ -7,6 +8,7 @@ import interface_adapter.edit_flashcard.EditFlashcardViewModel;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -16,7 +18,8 @@ import java.beans.PropertyChangeListener;
 import java.util.function.Supplier;
 
 /**
- * The View with the form for editing a flashcard in the open study set.
+ * The View with the form for editing a flashcard in the open study set. The
+ * flashcard can also be deleted from here, after the user confirms.
  */
 public class EditFlashcardView extends JPanel implements PropertyChangeListener {
   public static final String VIEW_NAME = EditFlashcardViewModel.VIEW_NAME;
@@ -26,11 +29,13 @@ public class EditFlashcardView extends JPanel implements PropertyChangeListener 
   private final JTextArea answerArea = new JTextArea(4, 40);
   private final JLabel errorLabel = new JLabel(" ");
   private EditFlashcardController controller;
+  private DeleteFlashcardController deleteController;
 
   /**
    * Builds the view and connects its buttons.
    *
-   * <p>The controller is supplied afterwards with {@link #setController}.
+   * <p>The controllers are supplied afterwards with {@link #setController} and
+   * {@link #setDeleteController}.
    *
    * @param viewModel         the view model to listen to
    * @param currentStudySetId supplies the id of the open study set
@@ -51,9 +56,11 @@ public class EditFlashcardView extends JPanel implements PropertyChangeListener 
 
     final JButton save = new JButton("Save");
     final JButton cancel = new JButton("Cancel");
+    final JButton delete = new JButton("Delete");
     final JPanel buttons = new JPanel();
     buttons.add(save);
     buttons.add(cancel);
+    buttons.add(delete);
 
     add(new JLabel("Question (front of the card):"));
     add(new JScrollPane(questionArea));
@@ -74,6 +81,14 @@ public class EditFlashcardView extends JPanel implements PropertyChangeListener 
       viewModel.firePropertyChanged();
       onCancel.run();
     });
+    delete.addActionListener(e -> {          // extension 3a: delete after confirming
+      final int choice = JOptionPane.showConfirmDialog(this,
+          "Delete this flashcard? This cannot be undone.", "Delete Flashcard",
+          JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+      if (choice == JOptionPane.YES_OPTION) {
+        deleteController.execute(currentStudySetId.get(), viewModel.getState().getCardIndex());
+      }
+    });
   }
 
   /**
@@ -83,6 +98,15 @@ public class EditFlashcardView extends JPanel implements PropertyChangeListener 
    */
   public void setController(EditFlashcardController controller) {
     this.controller = controller;
+  }
+
+  /**
+   * Sets the controller that handles the Delete button.
+   *
+   * @param deleteController the controller to call when the user confirms a deletion
+   */
+  public void setDeleteController(DeleteFlashcardController deleteController) {
+    this.deleteController = deleteController;
   }
 
   /**

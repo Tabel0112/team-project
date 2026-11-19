@@ -11,6 +11,8 @@ import interface_adapter.create_study_set.CreateStudySetController;
 import interface_adapter.create_study_set.CreateStudySetPresenter;
 import interface_adapter.create_study_set.CreateStudySetState;
 import interface_adapter.create_study_set.CreateStudySetViewModel;
+import interface_adapter.delete_flashcard.DeleteFlashcardController;
+import interface_adapter.delete_flashcard.DeleteFlashcardPresenter;
 import interface_adapter.edit_flashcard.EditFlashcardController;
 import interface_adapter.edit_flashcard.EditFlashcardPresenter;
 import interface_adapter.edit_flashcard.EditFlashcardViewModel;
@@ -21,6 +23,7 @@ import interface_adapter.view_flashcards.ViewFlashcardsState;
 import interface_adapter.view_flashcards.ViewFlashcardsViewModel;
 import use_case.add_flashcard.AddFlashcardInteractor;
 import use_case.create_study_set.CreateStudySetInteractor;
+import use_case.delete_flashcard.DeleteFlashcardInteractor;
 import use_case.edit_flashcard.EditFlashcardInteractor;
 import use_case.upload_notes.UploadNotesInteractor;
 import view.AddFlashcardView;
@@ -220,6 +223,24 @@ public class AppBuilder {
     final EditFlashcardInteractor interactor = new EditFlashcardInteractor(studySetDao, presenter);
     final EditFlashcardController controller = new EditFlashcardController(interactor);
     editFlashcardView.setController(controller);
+    return this;
+  }
+
+  /**
+   * Creates the Delete Flashcard interactor, presenter and controller, and gives the
+   * controller to the edit flashcard view, where its Delete button lives. Requires
+   * {@link #addCreateStudySetView()}, {@link #addStudySetView()} and
+   * {@link #addEditFlashcardView()} to have been called.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addDeleteFlashcardUseCase() {
+    final DeleteFlashcardPresenter presenter = new DeleteFlashcardPresenter(
+            editFlashcardViewModel, studySetViewModel, createStudySetViewModel, viewManagerModel);
+    final DeleteFlashcardInteractor interactor =
+            new DeleteFlashcardInteractor(studySetDao, presenter);
+    final DeleteFlashcardController controller = new DeleteFlashcardController(interactor);
+    editFlashcardView.setDeleteController(controller);
     return this;
   }
 

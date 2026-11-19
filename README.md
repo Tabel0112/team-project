@@ -114,7 +114,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Extensions:**
 - 5a. A field is empty: the system shows an error message and asks the user to fix it (return to step 3).
 - 4a. The user cancels: the system discards the changes and the flashcard stays as it was.
-- 3a. (Not yet implemented) The user chooses to delete the flashcard instead: the system asks for confirmation, then removes it from the study set.
+- 3a. The user chooses to delete the flashcard instead ("Delete" on the edit form): the system asks for confirmation, then removes it from the study set and returns to the study set with a confirmation message. If the user does not confirm, the flashcard is kept and the edit form stays open.
 
 **Success outcome:** The flashcard in the study set reflects the user's edits.
 
