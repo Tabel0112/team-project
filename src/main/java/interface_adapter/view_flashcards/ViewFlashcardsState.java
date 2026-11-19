@@ -9,6 +9,7 @@ public class ViewFlashcardsState {
   private String studySetName = "";
   private List<Item> cards = List.of();
   private String errorMessage = null;
+  private int selectedIndex = -1;
 
   /**
    * Creates an empty state.
@@ -56,6 +57,20 @@ public class ViewFlashcardsState {
    * @param errorMessage the error to display, or null to clear it
    */
   public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+
+  /**
+   * Returns the position of the flashcard to select, such as one that was just moved.
+   *
+   * @return the position to select, or -1 to select nothing
+   */
+  public int getSelectedIndex() { return selectedIndex; }
+
+  /**
+   * Sets the position of the flashcard to select.
+   *
+   * @param selectedIndex the position to select, or -1 to select nothing
+   */
+  public void setSelectedIndex(int selectedIndex) { this.selectedIndex = selectedIndex; }
 
   /**
    * One flashcard as the view shows it.

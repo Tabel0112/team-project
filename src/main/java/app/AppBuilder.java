@@ -16,6 +16,8 @@ import interface_adapter.delete_flashcard.DeleteFlashcardPresenter;
 import interface_adapter.edit_flashcard.EditFlashcardController;
 import interface_adapter.edit_flashcard.EditFlashcardPresenter;
 import interface_adapter.edit_flashcard.EditFlashcardViewModel;
+import interface_adapter.reorder_flashcards.ReorderFlashcardsController;
+import interface_adapter.reorder_flashcards.ReorderFlashcardsPresenter;
 import interface_adapter.study_set.StudySetViewModel;
 import interface_adapter.view_flashcards.ViewFlashcardsController;
 import interface_adapter.view_flashcards.ViewFlashcardsPresenter;
@@ -25,6 +27,7 @@ import use_case.add_flashcard.AddFlashcardInteractor;
 import use_case.create_study_set.CreateStudySetInteractor;
 import use_case.delete_flashcard.DeleteFlashcardInteractor;
 import use_case.edit_flashcard.EditFlashcardInteractor;
+import use_case.reorder_flashcards.ReorderFlashcardsInteractor;
 import use_case.upload_notes.UploadNotesInteractor;
 import view.AddFlashcardView;
 import view.CreateStudySetView;
@@ -62,6 +65,7 @@ public class AppBuilder {
   private AddFlashcardViewModel addFlashcardViewModel;
   private AddFlashcardView addFlashcardView;
   private ViewFlashcardsViewModel viewFlashcardsViewModel;
+  private ViewFlashcardsView viewFlashcardsView;
   private EditFlashcardViewModel editFlashcardViewModel;
   private EditFlashcardView editFlashcardView;
 
@@ -167,14 +171,16 @@ public class AppBuilder {
 
   /**
    * Creates the view flashcards pop-up and its view model. The pop-up is shown
-   * over the study set view, and its Edit button opens the edit flashcard form.
+   * over the study set view, its Edit button opens the edit flashcard form, and its
+   * Move Up / Move Down buttons reorder the open study set's flashcards.
    * Requires {@link #addStudySetView()} to have been called.
    *
    * @return this builder, for chaining
    */
   public AppBuilder addViewFlashcardsView() {
     viewFlashcardsViewModel = new ViewFlashcardsViewModel();
-    new ViewFlashcardsView(viewFlashcardsViewModel, studySetView, this::openEditFlashcardForm);
+    viewFlashcardsView = new ViewFlashcardsView(viewFlashcardsViewModel, studySetView,
+            this::openEditFlashcardForm, () -> studySetViewModel.getState().getStudySetId());
     return this;
   }
 
@@ -256,6 +262,22 @@ public class AppBuilder {
     final ViewFlashcardsInteractor interactor = new ViewFlashcardsInteractor(studySetDao, presenter);
     final ViewFlashcardsController controller = new ViewFlashcardsController(interactor);
     studySetView.setViewFlashcardsController(controller);
+    return this;
+  }
+
+  /**
+   * Creates the Reorder Flashcards interactor, presenter and controller, and gives the
+   * controller to the view flashcards pop-up, where its Move Up / Move Down buttons live.
+   * Requires {@link #addViewFlashcardsView()} to have been called.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addReorderFlashcardsUseCase() {
+    final ReorderFlashcardsPresenter presenter =
+            new ReorderFlashcardsPresenter(viewFlashcardsViewModel);
+    final ReorderFlashcardsInteractor interactor =
+            new ReorderFlashcardsInteractor(studySetDao, presenter);
+    viewFlashcardsView.setReorderController(new ReorderFlashcardsController(interactor));
     return this;
   }
 

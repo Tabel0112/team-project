@@ -1,5 +1,6 @@
 package view;
 
+import interface_adapter.reorder_flashcards.ReorderFlashcardsController;
 import interface_adapter.view_flashcards.ViewFlashcardsState;
 import interface_adapter.view_flashcards.ViewFlashcardsViewModel;
 
@@ -23,10 +24,12 @@ import java.awt.GridLayout;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.function.ObjIntConsumer;
+import java.util.function.Supplier;
 
 /**
  * A pop-up window listing the questions in the open study set. Clicking a
- * question shows that flashcard's question and answer, and Edit opens it for editing.
+ * question shows that flashcard's question and answer, Edit opens it for editing,
+ * and Move Up / Move Down change its position in the study set.
  */
 public class ViewFlashcardsView extends JPanel implements PropertyChangeListener {
   private final ViewFlashcardsViewModel viewModel;
@@ -37,6 +40,9 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
   private final JTextArea questionArea = createCardArea();
   private final JTextArea answerArea = createCardArea();
   private final JButton editButton = new JButton("Edit");
+  private final JButton moveUpButton = new JButton("Move Up");
+  private final JButton moveDownButton = new JButton("Move Down");
+  private ReorderFlashcardsController reorderController;
   private JDialog dialog;
 
   /**
@@ -45,9 +51,11 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
    * @param viewModel the view model to listen to
    * @param parent    the component the pop-up is shown over
    * @param onEdit    run with the selected flashcard and its position when the user clicks Edit
+   * @param currentStudySetId supplies the id of the open study set
    */
   public ViewFlashcardsView(ViewFlashcardsViewModel viewModel, Component parent,
-                            ObjIntConsumer<ViewFlashcardsState.Item> onEdit) {
+                            ObjIntConsumer<ViewFlashcardsState.Item> onEdit,
+                            Supplier<String> currentStudySetId) {
     this.viewModel = viewModel;
     this.parent = parent;
     viewModel.addPropertyChangeListener(this);
@@ -64,11 +72,21 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
       dialog.setVisible(false);
       onEdit.accept(selected, index);
     });
+    moveUpButton.addActionListener(e -> {      // extension 3b: change the order
+      final int index = questionList.getSelectedIndex();
+      reorderController.execute(currentStudySetId.get(), index, index - 1);
+    });
+    moveDownButton.addActionListener(e -> {    // extension 3b: change the order
+      final int index = questionList.getSelectedIndex();
+      reorderController.execute(currentStudySetId.get(), index, index + 1);
+    });
 
     final JPanel cardPanel = new JPanel(new GridLayout(2, 1, 0, 6));
     cardPanel.add(labelled("Question", questionArea));
     cardPanel.add(labelled("Answer", answerArea));
     final JPanel buttons = new JPanel();
+    buttons.add(moveUpButton);
+    buttons.add(moveDownButton);
     buttons.add(editButton);
     final JPanel southPanel = new JPanel(new BorderLayout());
     southPanel.add(cardPanel, BorderLayout.CENTER);
@@ -77,6 +95,15 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
     add(hintLabel, BorderLayout.NORTH);
     add(new JScrollPane(questionList), BorderLayout.CENTER);
     add(southPanel, BorderLayout.SOUTH);
+  }
+
+  /**
+   * Sets the controller that handles the Move Up and Move Down buttons.
+   *
+   * @param reorderController the controller to call when the user moves a flashcard
+   */
+  public void setReorderController(ReorderFlashcardsController reorderController) {
+    this.reorderController = reorderController;
   }
 
   /**
@@ -100,22 +127,33 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
     }
     hintLabel.setText(state.getCards().isEmpty()
         ? "This study set has no flashcards yet."
-        : "Click a question to see its flashcard, then Edit to change it.");
+        : "Click a question to see its flashcard. Move it up or down, or Edit to change it.");
+    if (state.getSelectedIndex() >= 0) {
+      questionList.setSelectedIndex(state.getSelectedIndex());
+      questionList.ensureIndexIsVisible(state.getSelectedIndex());
+    }
     showSelectedCard();
 
     // Shown after the use case finishes, so the modal pop-up doesn't block it.
-    SwingUtilities.invokeLater(() -> showDialog(state.getStudySetName()));
+    // When the pop-up is already open (after a move), it just shows the new order.
+    if (dialog == null || !dialog.isVisible()) {
+      SwingUtilities.invokeLater(() -> showDialog(state.getStudySetName()));
+    }
   }
 
   /**
    * Shows the question and answer of the selected flashcard, or nothing if no
-   * flashcard is selected. Edit is only enabled while a flashcard is selected.
+   * flashcard is selected. Edit is only enabled while a flashcard is selected, and
+   * Move Up / Move Down only when the flashcard can move that way.
    */
   private void showSelectedCard() {
     final ViewFlashcardsState.Item selected = questionList.getSelectedValue();
     questionArea.setText(selected == null ? "" : selected.getQuestion());
     answerArea.setText(selected == null ? "" : selected.getAnswer());
     editButton.setEnabled(selected != null);
+    final int index = questionList.getSelectedIndex();
+    moveUpButton.setEnabled(index > 0);
+    moveDownButton.setEnabled(index >= 0 && index < listModel.size() - 1);
   }
 
   /**
