@@ -5,6 +5,7 @@ import interface_adapter.view_flashcards.ViewFlashcardsViewModel;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
+import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -21,10 +22,11 @@ import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.util.function.ObjIntConsumer;
 
 /**
  * A pop-up window listing the questions in the open study set. Clicking a
- * question shows that flashcard's question and answer.
+ * question shows that flashcard's question and answer, and Edit opens it for editing.
  */
 public class ViewFlashcardsView extends JPanel implements PropertyChangeListener {
   private final ViewFlashcardsViewModel viewModel;
@@ -34,6 +36,7 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
   private final JLabel hintLabel = new JLabel(" ");
   private final JTextArea questionArea = createCardArea();
   private final JTextArea answerArea = createCardArea();
+  private final JButton editButton = new JButton("Edit");
   private JDialog dialog;
 
   /**
@@ -41,8 +44,10 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
    *
    * @param viewModel the view model to listen to
    * @param parent    the component the pop-up is shown over
+   * @param onEdit    run with the selected flashcard and its position when the user clicks Edit
    */
-  public ViewFlashcardsView(ViewFlashcardsViewModel viewModel, Component parent) {
+  public ViewFlashcardsView(ViewFlashcardsViewModel viewModel, Component parent,
+                            ObjIntConsumer<ViewFlashcardsState.Item> onEdit) {
     this.viewModel = viewModel;
     this.parent = parent;
     viewModel.addPropertyChangeListener(this);
@@ -53,13 +58,25 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
     questionList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     questionList.addListSelectionListener(e -> showSelectedCard());
 
+    editButton.addActionListener(e -> {
+      final ViewFlashcardsState.Item selected = questionList.getSelectedValue();
+      final int index = questionList.getSelectedIndex();
+      dialog.setVisible(false);
+      onEdit.accept(selected, index);
+    });
+
     final JPanel cardPanel = new JPanel(new GridLayout(2, 1, 0, 6));
     cardPanel.add(labelled("Question", questionArea));
     cardPanel.add(labelled("Answer", answerArea));
+    final JPanel buttons = new JPanel();
+    buttons.add(editButton);
+    final JPanel southPanel = new JPanel(new BorderLayout());
+    southPanel.add(cardPanel, BorderLayout.CENTER);
+    southPanel.add(buttons, BorderLayout.SOUTH);
 
     add(hintLabel, BorderLayout.NORTH);
     add(new JScrollPane(questionList), BorderLayout.CENTER);
-    add(cardPanel, BorderLayout.SOUTH);
+    add(southPanel, BorderLayout.SOUTH);
   }
 
   /**
@@ -83,7 +100,7 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
     }
     hintLabel.setText(state.getCards().isEmpty()
         ? "This study set has no flashcards yet."
-        : "Click a question to see its flashcard.");
+        : "Click a question to see its flashcard, then Edit to change it.");
     showSelectedCard();
 
     // Shown after the use case finishes, so the modal pop-up doesn't block it.
@@ -92,12 +109,13 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
 
   /**
    * Shows the question and answer of the selected flashcard, or nothing if no
-   * flashcard is selected.
+   * flashcard is selected. Edit is only enabled while a flashcard is selected.
    */
   private void showSelectedCard() {
     final ViewFlashcardsState.Item selected = questionList.getSelectedValue();
     questionArea.setText(selected == null ? "" : selected.getQuestion());
     answerArea.setText(selected == null ? "" : selected.getAnswer());
+    editButton.setEnabled(selected != null);
   }
 
   /**

@@ -11,15 +11,21 @@ import interface_adapter.create_study_set.CreateStudySetController;
 import interface_adapter.create_study_set.CreateStudySetPresenter;
 import interface_adapter.create_study_set.CreateStudySetState;
 import interface_adapter.create_study_set.CreateStudySetViewModel;
+import interface_adapter.edit_flashcard.EditFlashcardController;
+import interface_adapter.edit_flashcard.EditFlashcardPresenter;
+import interface_adapter.edit_flashcard.EditFlashcardViewModel;
 import interface_adapter.study_set.StudySetViewModel;
 import interface_adapter.view_flashcards.ViewFlashcardsController;
 import interface_adapter.view_flashcards.ViewFlashcardsPresenter;
+import interface_adapter.view_flashcards.ViewFlashcardsState;
 import interface_adapter.view_flashcards.ViewFlashcardsViewModel;
 import use_case.add_flashcard.AddFlashcardInteractor;
 import use_case.create_study_set.CreateStudySetInteractor;
+import use_case.edit_flashcard.EditFlashcardInteractor;
 import use_case.upload_notes.UploadNotesInteractor;
 import view.AddFlashcardView;
 import view.CreateStudySetView;
+import view.EditFlashcardView;
 import view.StudySetView;
 import view.UploadNotesPanel;
 import use_case.view_flashcards.ViewFlashcardsInteractor;
@@ -53,6 +59,8 @@ public class AppBuilder {
   private AddFlashcardViewModel addFlashcardViewModel;
   private AddFlashcardView addFlashcardView;
   private ViewFlashcardsViewModel viewFlashcardsViewModel;
+  private EditFlashcardViewModel editFlashcardViewModel;
+  private EditFlashcardView editFlashcardView;
 
   /**
    * Creates an empty builder.
@@ -156,13 +164,62 @@ public class AppBuilder {
 
   /**
    * Creates the view flashcards pop-up and its view model. The pop-up is shown
-   * over the study set view. Requires {@link #addStudySetView()} to have been called.
+   * over the study set view, and its Edit button opens the edit flashcard form.
+   * Requires {@link #addStudySetView()} to have been called.
    *
    * @return this builder, for chaining
    */
   public AppBuilder addViewFlashcardsView() {
     viewFlashcardsViewModel = new ViewFlashcardsViewModel();
-    new ViewFlashcardsView(viewFlashcardsViewModel, studySetView);
+    new ViewFlashcardsView(viewFlashcardsViewModel, studySetView, this::openEditFlashcardForm);
+    return this;
+  }
+
+  /**
+   * Clears the study set view's confirmation message and shows the edit flashcard
+   * form, filled with the chosen flashcard's current question and answer.
+   *
+   * @param card      the flashcard the user chose to edit
+   * @param cardIndex the flashcard's position in the open study set
+   */
+  private void openEditFlashcardForm(ViewFlashcardsState.Item card, int cardIndex) {
+    studySetViewModel.getState().setMessage("");
+    studySetViewModel.firePropertyChanged();
+    editFlashcardViewModel.getState().open(cardIndex, card.getQuestion(), card.getAnswer());
+    editFlashcardViewModel.firePropertyChanged();
+    viewManagerModel.setActiveView(EditFlashcardView.VIEW_NAME);
+  }
+
+  /**
+   * Creates the edit flashcard view and its view model. It edits flashcards in the
+   * study set that is open in the study set view, and its Cancel button returns there.
+   * Requires {@link #addStudySetView()} to have been called.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addEditFlashcardView() {
+    editFlashcardViewModel = new EditFlashcardViewModel();
+    editFlashcardView = new EditFlashcardView(
+            editFlashcardViewModel,
+            () -> studySetViewModel.getState().getStudySetId(),
+            () -> viewManagerModel.setActiveView(StudySetView.VIEW_NAME));
+    cardPanel.add(editFlashcardView, EditFlashcardView.VIEW_NAME);
+    return this;
+  }
+
+  /**
+   * Creates the Edit Flashcard interactor, presenter and controller, and gives the
+   * controller to the view. Requires {@link #addStudySetView()} and
+   * {@link #addEditFlashcardView()} to have been called.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addEditFlashcardUseCase() {
+    final EditFlashcardPresenter presenter = new EditFlashcardPresenter(
+            editFlashcardViewModel, studySetViewModel, viewManagerModel);
+    final EditFlashcardInteractor interactor = new EditFlashcardInteractor(studySetDao, presenter);
+    final EditFlashcardController controller = new EditFlashcardController(interactor);
+    editFlashcardView.setController(controller);
     return this;
   }
 
