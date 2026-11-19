@@ -115,19 +115,18 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Trigger:** The user selects the "Edit" option on an existing flashcard.
 
 **Main success scenario:**
-
-1. The user opens a study set and selects "Edit" on a flashcard.
+1. The user opens a study set, selects "View Flashcards", chooses a flashcard, and selects "Edit".
 2. The system displays the flashcard's current question and answer in editable fields.
 3. The user changes the question, the answer, or both.
 4. The user confirms the changes.
 5. The system validates that neither field is empty.
-6. The system updates the flashcard and displays the updated version.
+6. The system updates the flashcard and returns to the study set with a confirmation message. The updated flashcard appears in "View Flashcards".
 
 **Extensions:**
 
 - 5a. A field is empty: the system shows an error message and asks the user to fix it (return to step 3).
 - 4a. The user cancels: the system discards the changes and the flashcard stays as it was.
-- 3a. The user chooses to delete the flashcard instead: the system asks for confirmation, then removes it from the study set.
+- 3a. (Not yet implemented) The user chooses to delete the flashcard instead: the system asks for confirmation, then removes it from the study set.
 
 **Success outcome:** The flashcard in the study set reflects the user's edits.
 
