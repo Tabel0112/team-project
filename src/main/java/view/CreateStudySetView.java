@@ -72,8 +72,14 @@ public class CreateStudySetView extends JPanel implements PropertyChangeListener
     add(form, BorderLayout.NORTH);
     add(scrollPane, BorderLayout.CENTER);
 
-    create.addActionListener(e ->
-        controller.execute(currentUserId.get(), nameField.getText()));
+    create.addActionListener(e -> {
+      controller.execute(currentUserId.get(), nameField.getText());
+      // The controller runs synchronously, so the state already holds the result.
+      final CreateStudySetState state = viewModel.getState();
+      if (state.getCreatedStudySetId() != null && state.getErrorMessage() == null) {
+        clearInput();
+      }
+    });
     cancel.addActionListener(e -> {          // extension 3a: nothing is created
       nameField.setText("");
       errorLabel.setText(" ");
@@ -92,8 +98,14 @@ public class CreateStudySetView extends JPanel implements PropertyChangeListener
   }
 
   /**
-   * Updates the error label and the study set panel. After a successful creation,
-   * also clears the name field.
+   * Clears the study set name the user has typed.
+   */
+  public void clearInput() {
+    nameField.setText("");
+  }
+
+  /**
+   * Updates the error label and the study set panel.
    *
    * @param evt the change event from the view model
    */
@@ -101,9 +113,6 @@ public class CreateStudySetView extends JPanel implements PropertyChangeListener
   public void propertyChange(PropertyChangeEvent evt) {
     final CreateStudySetState state = viewModel.getState();
     errorLabel.setText(state.getErrorMessage() == null ? " " : state.getErrorMessage());
-    if (state.getCreatedStudySetId() != null) {
-      nameField.setText("");
-    }
     refreshList();
   }
 
