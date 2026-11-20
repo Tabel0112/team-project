@@ -72,8 +72,13 @@ public class CreateStudySetView extends JPanel implements PropertyChangeListener
     add(form, BorderLayout.NORTH);
     add(scrollPane, BorderLayout.CENTER);
 
-    create.addActionListener(e ->
-        controller.execute(currentUserId.get(), nameField.getText()));
+    create.addActionListener(e -> {
+      controller.execute(currentUserId.get(), nameField.getText());
+      if (viewModel.getState().getCreatedStudySetId() != null
+          && viewModel.getState().getErrorMessage() == null) {
+        nameField.setText("");
+      }
+    });
     cancel.addActionListener(e -> {          // extension 3a: nothing is created
       nameField.setText("");
       errorLabel.setText(" ");
@@ -81,6 +86,10 @@ public class CreateStudySetView extends JPanel implements PropertyChangeListener
 
     refreshList();
   }
+
+  /** Whether leaving the application would discard a typed, unsubmitted name. */
+  public boolean hasUnsubmittedInput() { return !nameField.getText().isBlank(); }
+  public void clearInput() { nameField.setText(""); }
 
   /**
    * Sets the controller that handles the Create button.
@@ -101,9 +110,6 @@ public class CreateStudySetView extends JPanel implements PropertyChangeListener
   public void propertyChange(PropertyChangeEvent evt) {
     final CreateStudySetState state = viewModel.getState();
     errorLabel.setText(state.getErrorMessage() == null ? " " : state.getErrorMessage());
-    if (state.getCreatedStudySetId() != null) {
-      nameField.setText("");
-    }
     refreshList();
   }
 
