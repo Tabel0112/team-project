@@ -8,6 +8,8 @@ import use_case.load_study_sets.*;
 import use_case.create_study_set.*;
 import use_case.add_flashcard.*;
 import use_case.view_flashcards.*;
+import use_case.edit_flashcard.*;
+import use_case.delete_flashcard.*;
 import java.util.*;
 import static org.junit.Assert.*;
 
@@ -121,6 +123,43 @@ public class SaveStudySetTest {
     }).execute(new ViewFlashcardsInputData(created[0]));
     assertEquals(2, local.pendingOrCapture(user, created[0]).upserts.size());
     assertTrue(local.hasUnsaved(user));
+  }
+  @Test public void teammateEditAndDeleteCommitStableIdsTombstonesAndShiftedOrder() throws Exception {
+    StudySet set = draft();
+    Flashcard first = new Flashcard("first", "answer1");
+    Flashcard edited = new Flashcard("second", "answer2");
+    Flashcard last = new Flashcard("third", "answer3");
+    set.getCardsList().addCard(first); set.getCardsList().addCard(edited); set.getCardsList().addCard(last);
+    local.acknowledge(local.pendingOrCapture(user, id), 1);
+
+    new EditFlashcardInteractor(local, new EditFlashcardOutputBoundary() {
+      public void prepareSuccessView(EditFlashcardOutputData data) { }
+      public void prepareFailView(String error) { fail(error); }
+    }).execute(new EditFlashcardInputData(id, 1, "second updated", "new answer"));
+    assertTrue(local.isDirty(user, id));
+    saver(request -> { calls.add(request); return 2; }).execute(new SaveStudySetInputData(user, id));
+    SaveRequest edit = calls.get(0);
+    assertEquals(1, edit.upserts.size()); assertTrue(edit.deletedIds.isEmpty());
+    assertEquals(edited.getId(), edit.upserts.get(0).id);
+    assertEquals("second updated", edit.upserts.get(0).question);
+    assertFalse(local.isDirty(user, id));
+
+    new DeleteFlashcardInteractor(local, new DeleteFlashcardOutputBoundary() {
+      public void prepareSuccessView(DeleteFlashcardOutputData data) { assertEquals(2, data.getCardCount()); }
+      public void prepareFailView(String error) { fail(error); }
+    }).execute(new DeleteFlashcardInputData(id, 0));
+    saver(request -> { calls.add(request); return 3; }).execute(new SaveStudySetInputData(user, id));
+    SaveRequest deletion = calls.get(1);
+    assertEquals(List.of(first.getId()), deletion.deletedIds);
+    assertEquals(2, deletion.upserts.size());
+    assertEquals(edited.getId(), deletion.upserts.get(0).id); assertEquals(0, deletion.upserts.get(0).position);
+    assertEquals(last.getId(), deletion.upserts.get(1).id); assertEquals(1, deletion.upserts.get(1).position);
+    assertFalse(output.saved.stillDirty);
+    local.clear();
+    local.install(user, new SetSnapshot(id, deletion.snapshot.name, 3, deletion.snapshot.cards));
+    assertEquals("new answer", local.local(user, id).cards.get(0).answer);
+    assertEquals(edited.getId(), local.getStudySetById(id).getCardsList().getCards().get(0).getId());
+    assertFalse(local.isDirty(user, id));
   }
   private static class Output implements SaveStudySetOutputBoundary {
     String error; SaveStudySetOutputData saved;
