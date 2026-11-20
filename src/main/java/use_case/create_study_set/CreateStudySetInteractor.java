@@ -60,6 +60,10 @@ public class CreateStudySetInteractor implements CreateStudySetInputBoundary {
   }
 
   public void createFromNotes(String userId, String baseName, List<Flashcard> cards) {
+    if (userId == null || userId.isBlank()) {
+      presenter.prepareFailView("Log in before creating a generated study set.");
+      return;
+    }
     if (cards.isEmpty()) {
       throw new IllegalArgumentException("A generated set needs at least one flashcard.");
     }

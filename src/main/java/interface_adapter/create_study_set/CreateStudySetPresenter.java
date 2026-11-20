@@ -60,6 +60,7 @@ public class CreateStudySetPresenter implements CreateStudySetOutputBoundary {
 
     final StudySetState studySetState = studySetViewModel.getState();
     studySetState.open(outputData.getStudySetId(), outputData.getName(), newSetCardCount);
+    studySetState.setMessage("New local study set. Click Save to keep it in your account.");
     studySetViewModel.firePropertyChanged();
     viewManagerModel.setActiveView(StudySetViewModel.VIEW_NAME);
   }
