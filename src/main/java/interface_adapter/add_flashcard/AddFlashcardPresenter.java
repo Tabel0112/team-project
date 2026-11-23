@@ -52,7 +52,7 @@ public class AddFlashcardPresenter implements AddFlashcardOutputBoundary {
 
     final StudySetState studySetState = studySetViewModel.getState();
     studySetState.setCardCount(outputData.getCardCount());
-    studySetState.setMessage("Flashcard added locally. Click Save to keep it in your account.");
+    studySetState.setMessage("Flashcard added.");
     studySetViewModel.firePropertyChanged();
 
     updateCountInStudySetList(outputData.getStudySetId(), outputData.getCardCount());

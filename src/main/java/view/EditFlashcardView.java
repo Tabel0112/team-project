@@ -30,8 +30,6 @@ public class EditFlashcardView extends JPanel implements PropertyChangeListener 
   private final JLabel errorLabel = new JLabel(" ");
   private EditFlashcardController controller;
   private DeleteFlashcardController deleteController;
-  private String originalQuestion = "";
-  private String originalAnswer = "";
 
   /**
    * Builds the view and connects its buttons.
@@ -56,7 +54,7 @@ public class EditFlashcardView extends JPanel implements PropertyChangeListener 
     answerArea.setWrapStyleWord(true);
     errorLabel.setForeground(Color.RED);
 
-    final JButton save = new JButton("Apply changes locally");
+    final JButton save = new JButton("Save");
     final JButton cancel = new JButton("Cancel");
     final JButton delete = new JButton("Delete");
     final JPanel buttons = new JPanel();
@@ -93,15 +91,10 @@ public class EditFlashcardView extends JPanel implements PropertyChangeListener 
     });
   }
 
-  /** Includes unsubmitted edits, including clearing a previously nonempty field. */
-  public boolean hasUnsubmittedInput() {
-    return !questionArea.getText().equals(originalQuestion) || !answerArea.getText().equals(originalAnswer);
-  }
-
   /**
-   * Sets the controller that handles the apply button.
+   * Sets the controller that handles the Save button.
    *
-   * @param controller the controller to call when the user applies changes locally
+   * @param controller the controller to call when the user clicks Save
    */
   public void setController(EditFlashcardController controller) {
     this.controller = controller;
@@ -124,10 +117,6 @@ public class EditFlashcardView extends JPanel implements PropertyChangeListener 
   @Override
   public void propertyChange(PropertyChangeEvent evt) {
     final EditFlashcardState state = viewModel.getState();
-    if (state.getErrorMessage() == null) {
-      originalQuestion = state.getQuestion();
-      originalAnswer = state.getAnswer();
-    }
     questionArea.setText(state.getQuestion());
     answerArea.setText(state.getAnswer());
     errorLabel.setText(state.getErrorMessage() == null ? " " : state.getErrorMessage());

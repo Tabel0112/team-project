@@ -42,7 +42,7 @@ public class EditFlashcardPresenter implements EditFlashcardOutputBoundary {
     viewModel.firePropertyChanged();
 
     final StudySetState studySetState = studySetViewModel.getState();
-    studySetState.setMessage("Flashcard updated locally: " + outputData.getQuestion() + ". Click Save open set to keep the change.");
+    studySetState.setMessage("Flashcard updated: " + outputData.getQuestion());
     studySetViewModel.firePropertyChanged();
 
     viewManagerModel.setActiveView(StudySetViewModel.VIEW_NAME);

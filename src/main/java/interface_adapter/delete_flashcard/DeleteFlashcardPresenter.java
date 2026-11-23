@@ -54,7 +54,7 @@ public class DeleteFlashcardPresenter implements DeleteFlashcardOutputBoundary {
 
     final StudySetState studySetState = studySetViewModel.getState();
     studySetState.setCardCount(outputData.getCardCount());
-    studySetState.setMessage("Flashcard deleted locally: " + outputData.getDeletedQuestion() + ". Click Save open set to keep the change.");
+    studySetState.setMessage("Flashcard deleted: " + outputData.getDeletedQuestion());
     studySetViewModel.firePropertyChanged();
 
     updateCountInStudySetList(outputData.getStudySetId(), outputData.getCardCount());
