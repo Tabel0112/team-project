@@ -403,7 +403,7 @@ public class AppBuilder {
     final CloudPresenter cloudPresenter = new CloudPresenter(loginModel, createStudySetViewModel,
         studySetViewModel, viewManagerModel, SwingUtilities::invokeLater);
     cloudController = new CloudController(new SaveStudySetInteractor(studySetDao, gateway, cloudPresenter),
-        new LoadStudySetsInteractor(studySetDao, gateway, cloudPresenter, AppBuilder::onEdtAndWait), loginModel,
+        new LoadStudySetsInteractor(studySetDao, gateway, cloudPresenter), loginModel,
         loginWorker, SwingUtilities::invokeLater);
     loginController = new LoginController(new LoginInteractor(gateway, presenter), gateway,
         loginModel, loginWorker, SwingUtilities::invokeLater, studySetDao::clear, cloudController::refresh);
@@ -445,18 +445,6 @@ public class AppBuilder {
     if (pages == null || pages.getSelectedComponent() != cardPanel
         || !StudySetView.VIEW_NAME.equals(viewManagerModel.getActiveView())) { return null; }
     return studySetViewModel.getState().getStudySetId();
-  }
-
-  private static void onEdtAndWait(Runnable task) {
-    if (SwingUtilities.isEventDispatchThread()) { task.run(); return; }
-    try {
-      SwingUtilities.invokeAndWait(task);
-    } catch (InterruptedException exception) {
-      Thread.currentThread().interrupt();
-      throw new IllegalStateException("The UI handoff was interrupted.", exception);
-    } catch (java.lang.reflect.InvocationTargetException exception) {
-      throw new IllegalStateException("The UI handoff could not finish.", exception.getCause());
-    }
   }
 
   private boolean confirmDiscard(Component parent, String action) {

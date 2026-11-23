@@ -2,7 +2,6 @@ package interface_adapter.cloud;
 
 import data_access.InMemoryStudySetDataAccessObject;
 import entity.StudySet;
-import entity.Flashcard;
 import entity.User;
 import interface_adapter.login.LoginController;
 import interface_adapter.login.LoginPresenter;
@@ -19,8 +18,6 @@ import org.junit.Test;
 import use_case.cloud.CloudException;
 import use_case.cloud.SetSnapshot;
 import use_case.load_study_sets.LoadStudySetsInputBoundary;
-import use_case.load_study_sets.LoadStudySetsInteractor;
-import use_case.load_study_sets.LoadStudySetsDataAccessInterface;
 import use_case.login.LoginDataAccessInterface;
 import use_case.login.LoginInteractor;
 import static org.junit.Assert.*;
@@ -56,7 +53,7 @@ public class CloudControllerTest {
     CloudController cloud = new CloudController(input -> { },
         new LoadStub() {
           @Override public void list(String user) { lists[0]++; }
-          @Override public void refresh(String user, SetSnapshot set, boolean reload) { fail("Login only lists sets"); }
+          @Override public void refresh(String user, String set, boolean discard) { fail("Login only lists sets"); }
         }, model, worker, ui);
     LoginController controller = new LoginController(new LoginInteractor(auth, new LoginPresenter(model, ui)),
         auth, model, worker, ui, () -> { }, cloud::refresh);
@@ -78,17 +75,17 @@ public class CloudControllerTest {
       @Override public boolean needsRefreshConfirmation(String user, String set) {
         assertEquals("user", user); assertEquals("set", set); return true;
       }
-      @Override public void refresh(String user, SetSnapshot set, boolean reload) {
-        assertEquals("user", user); assertEquals("set", set.id); refreshes[0]++; discarded[0] = reload;
+      @Override public void refresh(String user, String set, boolean discard) {
+        assertEquals("user", user); assertEquals("set", set); refreshes[0]++; discarded[0] = discard;
       }
     }, model, worker, ui);
-    controller.refresh(() -> "set", () -> {
+    controller.refresh("set", () -> {
       assertTrue(model.isBusy()); confirmations[0]++; return false;
     });
-    controller.refresh(() -> "set", () -> { fail("No duplicate confirmation while busy"); return true; });
+    controller.refresh("set", () -> { fail("No duplicate confirmation while busy"); return true; });
     assertEquals(1, confirmations[0]); assertEquals(0, refreshes[0]);
     worker.drain(); ui.drain(); assertEquals(1, refreshes[0]); assertFalse(discarded[0]);
-    controller.refresh(() -> "set", () -> { confirmations[0]++; return true; });
+    controller.refresh("set", () -> { confirmations[0]++; return true; });
     worker.drain(); ui.drain(); assertEquals(2, refreshes[0]); assertTrue(discarded[0]);
     assertEquals(2, confirmations[0]); assertFalse(model.isBusy());
   }
@@ -96,11 +93,11 @@ public class CloudControllerTest {
     LoginViewModel model = new LoginViewModel(); model.setUser(new User("user", "email"));
     Tasks worker = new Tasks(), ui = new Tasks(); final int[] refreshes = {0};
     CloudController controller = new CloudController(input -> fail(), new LoadStub() {
-      @Override public void refresh(String user, SetSnapshot set, boolean reload) {
-        assertNull(set); assertFalse(reload); refreshes[0]++;
+      @Override public void refresh(String user, String set, boolean discard) {
+        assertNull(set); assertFalse(discard); refreshes[0]++;
       }
     }, model, worker, ui);
-    controller.refresh(() -> null, () -> { fail("No open saved set to discard"); return false; });
+    controller.refresh(null, () -> { fail("No open saved set to discard"); return false; });
     worker.drain(); ui.drain(); assertEquals(1, refreshes[0]);
     CreateStudySetViewModel list = new CreateStudySetViewModel();
     list.getState().setStudySets(List.of(new CreateStudySetState.Item("set", "Old", 8)));
@@ -115,41 +112,6 @@ public class CloudControllerTest {
     assertEquals(1, list.getState().getStudySets().get(0).getCardCount());
     assertEquals("unchanged", views.getActiveView());
   }
-  @Test public void refreshCapturesBeforeConfirmationAndKeepsEditsMadeInsideModalLoop() throws Exception {
-    LoginViewModel model = new LoginViewModel(); model.setUser(new User("user", "email"));
-    Tasks worker = new Tasks(), ui = new Tasks();
-    InMemoryStudySetDataAccessObject local = new InMemoryStudySetDataAccessObject();
-    local.install("user", new SetSnapshot("set", "Saved", 2, List.of()));
-    StudySet working = local.getStudySetById("set");
-    working.getCardsList().addCard(new Flashcard("before confirmation", "answer"));
-    CloudPresenter presenter = new CloudPresenter(model, new CreateStudySetViewModel(),
-        new StudySetViewModel(), new ViewManagerModel(), ui);
-    LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, new LoadStudySetsDataAccessInterface() {
-      public List<use_case.cloud.SetSummary> list(String user) { return List.of(); }
-      public SetSnapshot load(String user, String set) { return new SetSnapshot("set", "Fresh", 3, List.of()); }
-    }, presenter);
-    CloudController controller = new CloudController(input -> fail(), load, model, worker, ui);
-    controller.refresh(() -> "set", () -> {
-      assertTrue(model.isBusy());
-      working.getCardsList().addCard(new Flashcard("during confirmation", "kept"));
-      return true;
-    });
-    worker.drain(); assertTrue(model.isBusy()); ui.drain();
-    assertFalse(model.isBusy()); assertSame(working, local.getStudySetById("set"));
-    assertEquals(2, local.local("user", "set").cards.size());
-    assertEquals(2, local.local("user", "set").revision);
-    assertTrue(model.getMessage().contains("newer local changes were kept"));
-  }
-  @Test public void refreshDropsSelectionChangedDuringConfirmation() {
-    LoginViewModel model = new LoginViewModel(); model.setUser(new User("user", "email"));
-    Tasks worker = new Tasks(), ui = new Tasks(); String[] visible = {"set"};
-    CloudController controller = new CloudController(input -> fail(), new LoadStub() {
-      @Override public boolean needsRefreshConfirmation(String user, String set) { return true; }
-      @Override public void refresh(String user, SetSnapshot expected, boolean reload) { assertNull(expected); }
-    }, model, worker, ui);
-    controller.refresh(() -> visible[0], () -> { visible[0] = null; return true; });
-    worker.drain(); ui.drain(); assertFalse(model.isBusy());
-  }
   private static class Tasks implements Executor {
     final Queue<Runnable> tasks = new ArrayDeque<>();
     public void execute(Runnable task) { tasks.add(task); }
@@ -159,10 +121,7 @@ public class CloudControllerTest {
     public void list(String user) { }
     public void open(String user, String set) { }
     public boolean needsRefreshConfirmation(String user, String set) { return false; }
-    public SetSnapshot captureRefresh(String user, String set) {
-      return set == null ? null : new SetSnapshot(set, "Saved", 1, List.of());
-    }
-    public void refresh(String user, SetSnapshot set, boolean reload) { }
+    public void refresh(String user, String set, boolean discard) { }
   }
   private static class Auth implements LoginDataAccessInterface {
     public User login(String email, char[] password, String required) throws CloudException { return null; }
