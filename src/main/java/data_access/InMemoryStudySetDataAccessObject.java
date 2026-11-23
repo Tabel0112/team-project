@@ -21,6 +21,12 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
         EditFlashcardDataAccessInterface, DeleteFlashcardDataAccessInterface {
   private final Map<String, List<StudySet>> setsByUser = new HashMap<>();
 
+  /** Drops all account data after a confirmed logout. */
+  public void clear() { setsByUser.clear(); }
+
+  /** Whether closing the current session would discard study sets. */
+  public boolean hasStudySets() { return setsByUser.values().stream().anyMatch(sets -> !sets.isEmpty()); }
+
   /**
    * Checks whether the user already has a study set with the given name.
    *
