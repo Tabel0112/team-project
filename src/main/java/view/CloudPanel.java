@@ -16,7 +16,7 @@ public final class CloudPanel extends JPanel {
     JButton save = new JButton("Save open set");
     add(new JLabel("Work locally, then click Save to commit changes to your account."));
     add(refresh); add(save);
-    refresh.addActionListener(event -> controller.refresh(refreshSetId.get(), confirmRefresh));
+    refresh.addActionListener(event -> controller.refresh(refreshSetId, confirmRefresh));
     save.addActionListener(event -> controller.save(setId.get()));
     Runnable update = () -> {
       boolean enabled = model.getUser() != null && !model.isBusy();

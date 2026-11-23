@@ -2,9 +2,11 @@ package interface_adapter.cloud;
 
 import interface_adapter.login.LoginViewModel;
 import java.util.concurrent.Executor;
+import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import use_case.load_study_sets.LoadStudySetsInputBoundary;
+import use_case.cloud.SetSnapshot;
 import use_case.save_study_set.SaveStudySetInputBoundary;
 import use_case.save_study_set.SaveStudySetInputData;
 
@@ -25,11 +27,16 @@ public final class CloudController {
     String user = userId();
     submit("Loading study sets...", () -> load.list(user));
   }
-  public void refresh(String setId, BooleanSupplier confirmDiscard) {
+  public void refresh(Supplier<String> visibleSetId, BooleanSupplier confirmDiscard) {
     String user = userId();
     submitPrepared("Refreshing study sets...", () -> {
-      boolean discard = load.needsRefreshConfirmation(user, setId) && confirmDiscard.getAsBoolean();
-      return () -> load.refresh(user, setId, discard);
+      String setId = visibleSetId.get();
+      SetSnapshot expected = load.captureRefresh(user, setId);
+      boolean reload = expected != null && (!load.needsRefreshConfirmation(user, setId)
+          || confirmDiscard.getAsBoolean());
+      // A modal confirmation runs a nested event loop; its original selection may have changed.
+      SetSnapshot target = Objects.equals(setId, visibleSetId.get()) ? expected : null;
+      return () -> load.refresh(user, target, reload);
     });
   }
   public void open(String setId) {

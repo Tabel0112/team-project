@@ -133,7 +133,7 @@ public class SaveStudySetTest {
     LoadOutput out = new LoadOutput();
     LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
     assertFalse(load.needsRefreshConfirmation(user, id));
-    load.refresh(user, id, false);
+    load.refresh(user, load.captureRefresh(user, id), true);
     assertEquals(1, gateway.lists); assertEquals(1, gateway.loads);
     assertSame(fresh, out.refreshed); assertNull(out.opened);
     assertTrue(fresh.sameContents(local.local(user, id)));
@@ -150,7 +150,7 @@ public class SaveStudySetTest {
     LoadOutput out = new LoadOutput();
     LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
     assertTrue(load.needsRefreshConfirmation(user, id));
-    load.refresh(user, id, false);
+    load.refresh(user, load.captureRefresh(user, id), false);
     assertEquals(1, gateway.lists); assertEquals(0, gateway.loads); assertNull(out.refreshed);
     assertSame(working, local.getStudySetById(id));
     assertSame(pending, local.pendingOrCapture(user, id)); assertEquals(2, local.local(user, id).revision);
@@ -164,10 +164,11 @@ public class SaveStudySetTest {
     RefreshGateway gateway = new RefreshGateway(fresh); gateway.fail = true;
     LoadOutput out = new LoadOutput();
     LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
-    load.refresh(user, id, true);
-    assertEquals("offline", out.error); assertSame(working, local.getStudySetById(id));
+    load.refresh(user, load.captureRefresh(user, id), true);
+    assertEquals("Study set list refreshed. The open set was kept: offline", out.error);
+    assertSame(working, local.getStudySetById(id));
     assertSame(pending, local.pendingOrCapture(user, id)); assertEquals(2, local.local(user, id).revision);
-    gateway.fail = false; load.refresh(user, id, true);
+    gateway.fail = false; load.refresh(user, load.captureRefresh(user, id), true);
     assertSame(fresh, out.refreshed); assertFalse(local.isDirty(user, id));
     assertNull(local.pendingOrCapture(user, id));
     local.acknowledge(pending, 3); assertEquals(5, local.local(user, id).revision);
@@ -181,11 +182,41 @@ public class SaveStudySetTest {
     LoadOutput out = new LoadOutput();
     LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
     assertFalse(load.needsRefreshConfirmation(user, id));
-    load.refresh(user, id, true); load.refresh(user, null, true);
-    load.refresh("other-user", id, true);
+    load.refresh(user, load.captureRefresh(user, id), true); load.refresh(user, null, true);
+    load.refresh("other-user", load.captureRefresh("other-user", id), true);
     assertEquals(3, gateway.lists); assertEquals(0, gateway.loads);
     assertSame(working, local.getStudySetById(id)); assertSame(pending, local.pendingOrCapture(user, id));
-    load.refresh(null, id, true); assertEquals(3, gateway.lists); assertEquals(0, gateway.loads);
+    load.refresh(null, load.captureRefresh(null, id), true); assertEquals(3, gateway.lists); assertEquals(0, gateway.loads);
+  }
+  @Test public void refreshKeepsEditsMadeDuringLoadAndPreservesBaselineAndRetry() throws Exception {
+    for (boolean initiallyDirty : List.of(false, true)) {
+      local.clear();
+      local.install(user, new SetSnapshot(id, "Saved", 2, List.of()));
+      StudySet working = local.getStudySetById(id);
+      SaveRequest pending = null;
+      if (initiallyDirty) {
+        working.getCardsList().addCard(new Flashcard("confirmed local edit", "answer"));
+        pending = local.pendingOrCapture(user, id);
+      }
+      RefreshGateway gateway = new RefreshGateway(new SetSnapshot(id, "Fresh", 3, List.of())) {
+        @Override public SetSnapshot load(String userId, String setId) throws CloudException {
+          // A queued popup can still edit while the background request is running.
+          working.getCardsList().addCard(new Flashcard("newer edit", "kept"));
+          return super.load(userId, setId);
+        }
+      };
+      LoadOutput out = new LoadOutput();
+      LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
+      SetSnapshot expected = load.captureRefresh(user, id);
+      load.refresh(user, expected, true);
+      assertEquals(1, gateway.loads); assertNull(out.refreshed);
+      assertTrue(out.error.contains("Study set list refreshed"));
+      assertTrue(out.error.contains("newer local changes were kept"));
+      assertSame(working, local.getStudySetById(id)); assertEquals(2, local.local(user, id).revision);
+      assertEquals(initiallyDirty ? 2 : 1, local.local(user, id).cards.size());
+      assertTrue(local.isDirty(user, id));
+      if (pending != null) { assertSame(pending, local.pendingOrCapture(user, id)); }
+    }
   }
   @Test public void refreshListFailureReportsOnceAndKeepsCopyRevisionAndPendingSave() throws Exception {
     local.install(user, new SetSnapshot(id, "Saved", 2, List.of()));
@@ -196,12 +227,12 @@ public class SaveStudySetTest {
     gateway.failList = true;
     LoadOutput out = new LoadOutput();
     LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
-    load.refresh(user, id, true);
+    load.refresh(user, load.captureRefresh(user, id), true);
     assertEquals("offline", out.error); assertEquals(1, out.failures);
     assertEquals(1, gateway.lists); assertEquals(0, gateway.loads); assertNull(out.refreshed);
     assertSame(working, local.getStudySetById(id)); assertEquals(2, local.local(user, id).revision);
     assertSame(pending, local.pendingOrCapture(user, id));
-    load.refresh(null, id, true);
+    load.refresh(null, load.captureRefresh(null, id), true);
     assertEquals(2, out.failures); assertEquals(1, gateway.lists); assertEquals(0, gateway.loads);
   }
   @Test public void teammateEditAndDeleteCommitStableIdsTombstonesAndShiftedOrder() throws Exception {

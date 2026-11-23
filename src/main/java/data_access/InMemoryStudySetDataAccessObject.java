@@ -96,8 +96,14 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
   @Override public synchronized boolean hasBaseline(String user, String id) {
     return baselines.containsKey(key(user, id));
   }
-  @Override public synchronized void replace(String user, SetSnapshot snapshot) throws CloudException {
+  @Override public synchronized void replace(String user, SetSnapshot snapshot,
+      SetSnapshot expectedLocal) throws CloudException {
     if (!hasBaseline(user, snapshot.id)) { throw new CloudException("The local draft was kept. Save it before refreshing."); }
+    SetSnapshot current = local(user, snapshot.id);
+    if (current == null || expectedLocal == null || current.revision != expectedLocal.revision
+        || !current.sameContents(expectedLocal)) {
+      throw new CloudException("The working copy changed during Refresh. Your newer local changes were kept.");
+    }
     save(user, snapshot.toEntity());
     baselines.put(key(user, snapshot.id), snapshot);
     pending.remove(key(user, snapshot.id));

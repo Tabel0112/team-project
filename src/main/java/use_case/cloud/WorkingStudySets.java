@@ -11,7 +11,7 @@ public interface WorkingStudySets {
   boolean contains(String userId, String setId);
   boolean hasBaseline(String userId, String setId);
   void install(String userId, SetSnapshot snapshot) throws CloudException;
-  void replace(String userId, SetSnapshot snapshot) throws CloudException;
+  void replace(String userId, SetSnapshot snapshot, SetSnapshot expectedLocal) throws CloudException;
   void mergeSummaries(String userId, List<SetSummary> summaries);
   List<SetSummary> summaries(String userId);
   SetSnapshot local(String userId, String setId);
