@@ -27,9 +27,11 @@ The Flashcards application turns course materials into practice quizzes and flas
 
 ### User Story 4: As a student, I want to be able to create multiple sets of study materials, so that I can study different subjects at the same time.
 
-### User Story 5: As a student, I want to be able to save my study sets, so that I can go back to them whenever I want.
+### User Story 5: As a student, I want to log in to my account, so that I can access my own study sets.
 
-### User Story 6: As a student, I want to be able to go through and practice with my study set, so that I can review my course material.
+### User Story 6: As a student, I want to save and reopen my study sets, so that I can return to them in later sessions.
+
+### User Story 7: As a student, I want to be able to go through and practice with my study set, so that I can review my course material.
 
 ---
 ## Use Cases
@@ -145,37 +147,68 @@ The Flashcards application turns course materials into practice quizzes and flas
 - 3a. The user cancels: no study set is created.
 - 6a. The user wants another study set for a different subject: the user returns to their list and selects "New Study Set" again (return to step 1). Each study set is kept separate from the others.
 
-**Success outcome:** A new, empty study set exists in the user's account alongside any existing study sets, so the user can create as many separate study sets as they need.
+**Success outcome:** A new, empty study set opens as a local draft, ready for the user to add flashcards.
 
 ---
 
-### Use Case 5: Save Study Set
+### Use Case 5: Login
 
-**Name:** Save Study Set
+**Name:** Login
 
 **Primary actor:** Student (User)
 
 **Preconditions:**
-- The user has a study set with new or changed flashcards.
-- The user is logged in (signed up and authenticated through Supabase Auth).
+- The user has an account with a confirmed email address.
 
-**Trigger:** The user selects "Save", or the system auto-saves after a change.
+**Trigger:** The user selects "Log in / Reauthenticate".
 
 **Main success scenario:**
-1. The user selects "Save" on a study set.
-2. The system sends the study set and its flashcards to the Supabase database, linked to the user's account.
-3. Supabase stores the data and confirms.
-4. The system shows a confirmation that the study set was saved.
-5. Later, the user logs in and opens the study set, and the system loads it from Supabase with all its flashcards.
+1. The user enters their email and password and selects "Log in / Reauthenticate".
+2. The system validates the email and password input.
+3. The system verifies the credentials and signs the user in.
+4. The system confirms the login and enables the account's study set features.
 
 **Extensions:**
-- 1a. The user is not logged in: the system prompts the user to log in or sign up, then continues from step 2.
-- 3a. The save fails (for example, no network connection): the system shows an error message, keeps the unsaved changes locally, and lets the user retry.
-- 5a. Login fails because of invalid credentials: the system shows an error message and lets the user try again.
+- 1a. The user needs an account: the user selects "Sign up", confirms their email, and returns to step 1.
+- 2a. A field is missing or the email is invalid: the system asks the user to correct the input (return to step 1).
+- 3a. The credentials are incorrect or the email is unconfirmed: the system shows an error and lets the user try again (return to step 1).
+
+**Success outcome:** The user is signed in and can access their account's study features.
+
+---
+
+### Use Case 6: Save and Load Study Sets
+
+**Name:** Save and Load Study Sets
+
+**Primary actor:** Student (User)
+
+**Preconditions:**
+- The user is logged in (see Use Case 5).
+- The user has an open study set with unsaved changes.
+
+**Trigger:** The user selects "Save open set" or opens a saved study set from the list.
+
+**Main success scenario:**
+1. The user selects "Save open set". Changes stay local until this step.
+2. The system saves the set's name, flashcard changes, and card order to the user's account. Saving changes to an existing set updates the same set.
+3. The system confirms the save.
+4. In a later session, the user logs in and the system lists their saved study sets.
+5. The user selects the saved study set.
+6. The system opens it with its saved name, questions, answers, and card order.
+
+**Extensions:**
+- 1a. The user only wants to open a previously saved set: the user selects it from the list (continue at step 6).
+- 2a. The save fails: the system shows an error, keeps the unsaved changes locally, and lets the user retry (return to step 1).
+- 4a. The list fails to load: the system shows an error and lets the user select "Refresh set list" to retry.
+- 6a. A local working copy already exists: the system opens that copy with any unsaved changes intact.
+- 6b. The study set fails to load: the system shows an error, keeps existing local drafts, and lets the user try again (return to step 5).
 
 **Success outcome:** The study set and its flashcards are stored in the cloud under the user's account and can be retrieved in later sessions.
 
-### Use Case 6: Practice Study Set
+---
+
+### Use Case 7: Practice Study Set
 
 **Name:** Practice Study Set
 
@@ -215,7 +248,8 @@ The Flashcards application turns course materials into practice quizzes and flas
 | Ryan | Generate Flashcards from Lecture Notes |
 | Elia | Edit Flashcard |
 | Olivia | Create Multiple Sets of Flashcards |
-| Abel | Save Study Set |
+| Abel | Login |
+| Abel | Save and Load Study Sets |
 | Everyone| Practice Study Set |
 
 ---
@@ -223,35 +257,85 @@ The Flashcards application turns course materials into practice quizzes and flas
 
 ### Flashcard
 
+Stable UUID `id` and immutable `question` and `answer`. The getters expose these fields. The existing two-argument constructor creates an ID; the three-argument constructor rebuilds the same card from storage.
+
 ### StudySet
+
+Stable UUID `id`, a `name`, and a `CardsList`. The getters expose the local working copy. `StudySetFactory.create` creates a new empty set.
 
 ### CardsList
 
+Ordered flashcards with `addCard`, `removeCard`, `replaceCard`, `getCards`, and `size`. Replacing card text preserves its identity. Local changes are compared with the last acknowledged snapshot when Save is clicked.
+
 ### User
 
+Authenticated UUID `id` and `email`. The `getId` and `getEmail` methods expose the account identity.
+
 ---
+
 ## API Usage
 
-**APIs:** OpenAI/Gemini for flashcard generation, and Supabase for data storage and authentication.
-
-**Documentation:**
-
-- [Gemini API — Content Generation Reference](https://aistudio.google.com/api-reference/generate-content?hl=en)
-- [Supabase API — Database Documentation](https://supabase.com/docs/guides/api)
-- [Supabase Auth — Authentication Documentation](https://supabase.com/docs/guides/auth)
-
-**How it is used in the program:**
-
-- **AI API (OpenAI/Gemini):** The application will send text from uploaded lecture notes to the AI API to generate questions and answers, which will be used to create flashcards for the user to review and edit.
-- **Supabase Database:** The application will save and retrieve each user's study sets and flashcards. Changes to saved cards and sets will be stored so users can access their updated study materials later.
-- **Supabase Auth:** Users will be able to sign up and log in to their accounts. Their saved study sets and flashcards will be linked to their accounts so they can return to them in later study sessions.
+- **Gemini** generates questions and answers from uploaded notes. [Gemini API docs](https://ai.google.dev/gemini-api/docs/text-generation). Generation and blocked-response handling were tested with fixtures. A live PDF upload is still to be confirmed. [PDF upload PR](https://github.com/Tabel0112/team-project/pull/11)
+- **Supabase Auth** handles signup and login. A live Java check verified login with a confirmed account. [Supabase Auth docs](https://supabase.com/docs/guides/auth)
+- **Supabase Data API** stores and loads study sets. A live Java check saved a set and reopened it from a fresh process. [Supabase API docs](https://supabase.com/docs/guides/api) · [Verification details](database/README.md)
 
 ---
 ## Design Diagrams
 
 ### UML Class Diagram
 
+Login and Save/Load depend on interfaces declared by their use cases. `AppBuilder` connects them to Swing and the Supabase adapter.
+
+```mermaid
+classDiagram
+    LoginPanel --> LoginController
+    LoginController --> LoginInputBoundary
+    LoginInputBoundary <|.. LoginInteractor
+    LoginInteractor --> LoginOutputBoundary
+    LoginOutputBoundary <|.. LoginPresenter
+    LoginInteractor --> LoginDataAccessInterface
+    LoginDataAccessInterface <|.. SupabaseGateway
+    CloudPanel --> CloudController
+    CloudController --> SaveStudySetInputBoundary
+    SaveStudySetInputBoundary <|.. SaveStudySetInteractor
+    CloudController --> LoadStudySetsInputBoundary
+    LoadStudySetsInputBoundary <|.. LoadStudySetsInteractor
+    SaveStudySetInteractor --> SaveStudySetDataAccessInterface
+    LoadStudySetsInteractor --> LoadStudySetsDataAccessInterface
+    SaveStudySetDataAccessInterface <|.. SupabaseGateway
+    LoadStudySetsDataAccessInterface <|.. SupabaseGateway
+    SaveStudySetInteractor --> SaveStudySetOutputBoundary
+    LoadStudySetsInteractor --> LoadStudySetsOutputBoundary
+    SaveStudySetOutputBoundary <|.. CloudPresenter
+    LoadStudySetsOutputBoundary <|.. CloudPresenter
+```
+
 ### Sequence Diagrams
+
+```mermaid
+sequenceDiagram
+    actor Student
+    participant UI as Swing UI
+    participant Controller as CloudController
+    participant Save as SaveStudySetInteractor
+    participant Store as WorkingStudySets
+    participant Cloud as SupabaseGateway
+    participant Presenter as CloudPresenter
+    Student->>UI: Click Save open set
+    UI->>Controller: save(setId)
+    Controller->>Save: execute(input)
+    Save->>Store: Capture or reuse pending changes
+    Save->>Cloud: Commit pending changes
+    alt Save confirmed
+        Cloud-->>Save: Saved revision
+        Save->>Store: Acknowledge the confirmed snapshot
+        Save->>Presenter: saved(output)
+    else Save failed
+        Cloud-->>Save: Cloud error
+        Save->>Presenter: failed(message)
+    end
+    Presenter-->>UI: Update study set status
+```
 
 ---
 ## How to Run
@@ -260,9 +344,27 @@ Requires Java 11+ and Maven. From the project directory:
 
 ```sh
 mvn compile exec:java "-Dexec.mainClass=app.Main"
-``
+```
 
----
-## Notes
+### Supabase setup
 
-[Any additional project information.]
+Follow the [Supabase setup guide](database/README.md) to install the schema on a new project.
+
+Set these environment variables or add them to the ignored `.env` file in the project directory:
+
+```dotenv
+SUPABASE_URL=https://<project-reference>.supabase.co
+SUPABASE_ANON_KEY=<publishable-key-or-legacy-anon-key>
+```
+
+### Login and manual Save
+
+Log in with a confirmed account, or sign up and confirm your email first. Changes stay local until you click **Save open set**. Saved sets appear in your list when you log in again. If Save fails, you can retry with your changes intact. The app asks for confirmation before discarding unsaved study changes when you log out or close it.
+
+### Validation
+
+```sh
+mvn test
+```
+
+Live Supabase login, save, and reopen checks passed. The [verification guide](database/README.md) records the results and the pending Swing walkthrough.
