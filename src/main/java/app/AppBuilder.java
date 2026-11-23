@@ -8,6 +8,14 @@ import interface_adapter.login.LoginPresenter;
 import interface_adapter.login.LoginViewModel;
 import use_case.login.LoginInteractor;
 import view.LoginPanel;
+import view.CloudPanel;
+import interface_adapter.cloud.CloudController;
+import interface_adapter.cloud.CloudPresenter;
+import use_case.save_study_set.SaveStudySetInteractor;
+import use_case.load_study_sets.LoadStudySetsInteractor;
+import entity.Flashcard;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
@@ -72,6 +80,8 @@ public class AppBuilder {
 
   private final LoginViewModel loginModel = new LoginViewModel();
   private LoginController loginController;
+  private CloudController cloudController;
+  private final List<Runnable> deferredGenerated = new ArrayList<>();
   private ExecutorService loginWorker;
   private ViewFlashcardsView viewFlashcardsView;
   private UploadNotesPanel uploadNotesPanel;
@@ -93,7 +103,14 @@ public class AppBuilder {
   /**
    * Creates an empty builder.
    */
-  public AppBuilder() { }
+  public AppBuilder() {
+    loginModel.addPropertyChangeListener(event -> {
+      if (pages != null) {
+        setTreeEnabled(pages, loginModel.getUser() != null && !loginModel.isBusy());
+      }
+      drainGeneratedResults();
+    });
+  }
 
   /**
    * Returns the id of the logged-in user.
@@ -111,9 +128,7 @@ public class AppBuilder {
    * @param item the study set that was clicked
    */
   private void openStudySet(CreateStudySetState.Item item) {
-    studySetViewModel.getState().open(item.getId(), item.getName(), item.getCardCount());
-    studySetViewModel.firePropertyChanged();
-    viewManagerModel.setActiveView(StudySetViewModel.VIEW_NAME);
+    if (cloudController != null) { cloudController.open(item.getId()); }
   }
 
   /**
@@ -314,14 +329,21 @@ public class AppBuilder {
     loginWorker = Executors.newSingleThreadExecutor(task -> {
       Thread thread = new Thread(task, "authentication-worker"); thread.setDaemon(true); return thread;
     });
+    final CloudPresenter cloudPresenter = new CloudPresenter(loginModel, createStudySetViewModel,
+        studySetViewModel, viewManagerModel, SwingUtilities::invokeLater);
+    cloudController = new CloudController(new SaveStudySetInteractor(studySetDao, gateway, cloudPresenter),
+        new LoadStudySetsInteractor(studySetDao, gateway, cloudPresenter), loginModel,
+        loginWorker, SwingUtilities::invokeLater);
     loginController = new LoginController(new LoginInteractor(gateway, presenter), gateway,
-        loginModel, loginWorker, SwingUtilities::invokeLater, studySetDao::clear);
+        loginModel, loginWorker, SwingUtilities::invokeLater, studySetDao::clear, cloudController::refresh);
     JTabbedPane pages = buildPages(new UploadNotesInteractor(new PdfBoxTextReader()));
     JPanel root = new JPanel(new BorderLayout());
-    root.add(new LoginPanel(loginModel, loginController, () -> logout(frame)), BorderLayout.NORTH);
+    JPanel account = new JPanel(new BorderLayout());
+    account.add(new LoginPanel(loginModel, loginController, () -> logout(frame)), BorderLayout.NORTH);
+    account.add(new CloudPanel(loginModel, cloudController,
+        () -> studySetViewModel.getState().getStudySetId()), BorderLayout.SOUTH);
+    root.add(account, BorderLayout.NORTH);
     root.add(pages, BorderLayout.CENTER);
-    loginModel.addPropertyChangeListener(event ->
-        setTreeEnabled(pages, loginModel.getUser() != null && !loginModel.isBusy()));
     setTreeEnabled(pages, false);
     frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
     frame.addWindowListener(new WindowAdapter() {
@@ -332,6 +354,7 @@ public class AppBuilder {
           // Let already queued preview openings run before disposing their owned dialogs.
           loginModel.setBusy(true);
           SwingUtilities.invokeLater(() -> {
+            deferredGenerated.clear();
             loginModel.setBusy(false);
             loginController.logout(); clearSessionViews(); loginWorker.shutdown(); frame.dispose();
           });
@@ -345,9 +368,9 @@ public class AppBuilder {
   }
 
   private boolean confirmDiscard(Component parent, String action) {
-    if (!studySetDao.hasStudySets()) { return true; }
+    if (!studySetDao.hasUnsaved(currentUserId())) { return true; }
     return JOptionPane.showConfirmDialog(parent,
-        "Local study sets are kept only in memory. They will be lost if you "
+        "Unsaved local study changes will be lost if you "
         + action + ". Choose Cancel to return to your work.",
         "Unsaved changes", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION;
   }
@@ -358,6 +381,7 @@ public class AppBuilder {
       // disposes it before the old account is released and another account can log in.
       loginModel.setBusy(true);
       SwingUtilities.invokeLater(() -> {
+        deferredGenerated.clear();
         loginModel.setBusy(false);
         loginController.logout();
         clearSessionViews();
@@ -368,6 +392,7 @@ public class AppBuilder {
   /** Clears both visible fields and cached account data after a confirmed logout/close. */
   private void clearSessionViews() {
     sessionGeneration++;
+    deferredGenerated.clear();
     if (applicationFrame != null) {
       for (java.awt.Window owned : applicationFrame.getOwnedWindows()) { owned.dispose(); }
     }
@@ -410,15 +435,32 @@ public class AppBuilder {
 
   private void replaceUploadPanel() {
     final long generation = sessionGeneration;
-    uploadNotesPanel = new UploadNotesPanel(uploadNotes, (title, cards) -> {
-      // A worker owned by a detached panel may finish after logout. It must never
-      // insert its results into the next account's working repository.
-      if (generation != sessionGeneration || currentUserId() == null) { return; }
-      createStudySet.createFromNotes(currentUserId(), title, cards);
-      viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
-      pages.setSelectedComponent(cardPanel);
-    });
+    uploadNotesPanel = new UploadNotesPanel(uploadNotes,
+        (title, cards) -> acceptGenerated(generation, title, cards));
     pages.setComponentAt(1, uploadNotesPanel);
     setTreeEnabled(uploadNotesPanel, loginModel.getUser() != null && !loginModel.isBusy());
   }
+
+  private void acceptGenerated(long generation, String title, List<Flashcard> cards) {
+    if (generation != sessionGeneration || currentUserId() == null) { return; }
+    // Cloud requests capture immutable snapshots on the serial worker. Delay a PDF
+    // result until that worker's operation finishes, so it cannot mutate the repo
+    // while a snapshot/list/load is being captured or installed.
+    if (loginModel.isBusy()) {
+      final List<Flashcard> captured = List.copyOf(cards);
+      deferredGenerated.add(() -> acceptGenerated(generation, title, captured));
+      return;
+    }
+    createStudySet.createFromNotes(currentUserId(), title, cards);
+    viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
+    pages.setSelectedComponent(cardPanel);
+  }
+
+  private void drainGeneratedResults() {
+    if (loginModel.isBusy() || deferredGenerated.isEmpty()) { return; }
+    List<Runnable> results = new ArrayList<>(deferredGenerated);
+    deferredGenerated.clear();
+    for (Runnable result : results) { result.run(); }
+  }
+
 }

@@ -30,13 +30,16 @@ public class CardsList {
   public void removeCard(Flashcard card) { cards.remove(card); }
 
   /**
-   * Replaces the flashcard at a position with another, keeping its place in the list.
+   * Replaces a flashcard's text, keeping its identity and place in the list.
    *
    * @param index the position of the flashcard to replace, starting at 0
    * @param card  the flashcard to put in its place
    * @throws IndexOutOfBoundsException if there is no flashcard at that position
    */
-  public void replaceCard(int index, Flashcard card) { cards.set(index, card); }
+  public void replaceCard(int index, Flashcard card) {
+    final String id = cards.get(index).getId();
+    cards.set(index, new Flashcard(id, card.getQuestion(), card.getAnswer()));
+  }
 
   /**
    * Returns the flashcards in this list.

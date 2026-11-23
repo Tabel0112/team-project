@@ -9,7 +9,7 @@ public final class LoginViewModel {
   private final PropertyChangeSupport changes = new PropertyChangeSupport(this);
   private User user;
   private boolean busy;
-  private String message = "Log in to work with your study sets. This version keeps study sets in memory.";
+  private String message = "Log in to load your study sets. Local changes are saved only when you click Save.";
   private long generation;
   public User getUser() { return user; }
   public boolean isBusy() { return busy; }

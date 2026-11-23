@@ -84,6 +84,48 @@ public class SessionViewsResetTest {
       } catch (ReflectiveOperationException exception) { throw new AssertionError(exception); }
     });
   }
+  @Test public void pdfCompletionDuringCloudWorkWaitsForIdleAndRemainsUnsaved() throws Exception {
+    SwingUtilities.invokeAndWait(() -> {
+      try {
+        AppBuilder builder = new AppBuilder().addCreateStudySetView().addStudySetView()
+            .addAddFlashcardView().addViewFlashcardsView().addEditFlashcardView()
+            .addCreateStudySetUseCase().addViewFlashcardsUseCase();
+        builder.buildPages(new UploadNotesInteractor(path -> "fixture"));
+        LoginViewModel model = field(builder, "loginModel", LoginViewModel.class);
+        model.setUser(new User("uid", "a@example.test"));
+        InMemoryStudySetDataAccessObject dao = field(builder, "studySetDao", InMemoryStudySetDataAccessObject.class);
+        model.setBusy(true);
+        UploadNotesPanel panel = field(builder, "uploadNotesPanel", UploadNotesPanel.class);
+        @SuppressWarnings("unchecked")
+        BiConsumer<String, List<Flashcard>> result = field(panel, "onGenerated", BiConsumer.class);
+        result.accept("Deferred PDF", List.of(new Flashcard("Q", "A")));
+        assertTrue(dao.getStudySets("uid").isEmpty());
+        model.setBusy(false);
+        assertEquals(1, dao.getStudySets("uid").size());
+        assertTrue(dao.hasUnsaved("uid"));
+      } catch (ReflectiveOperationException exception) { throw new AssertionError(exception); }
+    });
+  }
+  @Test public void acknowledgedWorkingCopyDoesNotPromptToDiscardAndLaterEditIsDirty() throws Exception {
+    SwingUtilities.invokeAndWait(() -> {
+      try {
+        AppBuilder builder = new AppBuilder().addCreateStudySetView().addStudySetView()
+            .addAddFlashcardView().addViewFlashcardsView().addEditFlashcardView()
+            .addCreateStudySetUseCase().addViewFlashcardsUseCase();
+        builder.buildPages(new UploadNotesInteractor(path -> "fixture"));
+        field(builder, "loginModel", LoginViewModel.class).setUser(new User("uid", "a@example.test"));
+        InMemoryStudySetDataAccessObject dao = field(builder, "studySetDao", InMemoryStudySetDataAccessObject.class);
+        entity.StudySet set = new entity.StudySet("id", "Saved"); dao.save("uid", set);
+        dao.acknowledge(dao.pendingOrCapture("uid", "id"), 1);
+        Method confirm = AppBuilder.class.getDeclaredMethod("confirmDiscard", Component.class, String.class);
+        confirm.setAccessible(true); assertEquals(true, confirm.invoke(builder, null, "log out"));
+        set.getCardsList().addCard(new Flashcard("Changed", "A"));
+        assertTrue(dao.hasUnsaved("uid"));
+      } catch (ReflectiveOperationException | use_case.cloud.CloudException exception) {
+        throw new AssertionError(exception);
+      }
+    });
+  }
   private static <T> T field(Object target, String name, Class<T> type) throws ReflectiveOperationException {
     Field field = target.getClass().getDeclaredField(name); field.setAccessible(true);
     return type.cast(field.get(target));
