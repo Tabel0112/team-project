@@ -17,7 +17,7 @@ public final class LoginPresenter implements LoginOutputBoundary {
   @Override public void loggedIn(LoginOutputData output) {
     ui.execute(() -> {
       model.setUser(new User(output.userId, output.email));
-      model.message("Logged in. Study sets are kept in memory for this session.");
+      model.message("Logged in. Local working copies are ready.");
     });
   }
   @Override public void signupSubmitted(String message) { ui.execute(() -> model.message(message)); }

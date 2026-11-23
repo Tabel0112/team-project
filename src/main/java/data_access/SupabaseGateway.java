@@ -2,8 +2,10 @@ package data_access;
 
 import com.google.gson.*;
 import entity.User;
-import use_case.cloud.CloudException;
+import use_case.cloud.*;
 import use_case.login.LoginDataAccessInterface;
+import use_case.load_study_sets.LoadStudySetsDataAccessInterface;
+import use_case.save_study_set.SaveStudySetDataAccessInterface;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -11,10 +13,13 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /** Java 11 HTTP adapter. Public API key identifies the app; the access JWT identifies the user. */
-public final class SupabaseGateway implements LoginDataAccessInterface {
+public final class SupabaseGateway implements LoginDataAccessInterface,
+    LoadStudySetsDataAccessInterface, SaveStudySetDataAccessInterface {
   private final SupabaseConfig config;
   private final HttpClient http;
   private final Gson gson = new Gson();
@@ -48,6 +53,84 @@ public final class SupabaseGateway implements LoginDataAccessInterface {
   }
   @Override public synchronized void forgetSession() { session = null; }
 
+  @Override public synchronized List<SetSummary> list(String userId) throws CloudException {
+    try {
+      List<SetSummary> result = new ArrayList<>();
+      int offset = 0;
+      while (true) {
+        JsonArray rows = authorized(userId, "GET", "/rest/v1/uc5_study_sets?select=id,name"
+            + "&order=id&limit=500&offset=" + offset, null).getAsJsonArray();
+        for (JsonElement row : rows) {
+          JsonObject set = row.getAsJsonObject();
+          result.add(new SetSummary(uuid(set, "id"), string(set, "name")));
+        }
+        if (rows.size() < 500) { break; }
+        offset += rows.size();
+      }
+      return List.copyOf(result);
+    } catch (RuntimeException exception) { throw malformed(); }
+  }
+  @Override public synchronized SetSnapshot load(String userId, String setId) throws CloudException {
+    JsonObject body = new JsonObject(); body.addProperty("p_set_id", setId);
+    JsonElement element = authorized(userId, "POST", "/rest/v1/rpc/uc5_load_set", body);
+    if (element.isJsonNull()) { throw new CloudException("This study set is unavailable. Your local drafts were kept."); }
+    try {
+      JsonObject set = element.getAsJsonObject();
+      List<SetSnapshot.Card> cards = new ArrayList<>();
+      for (JsonElement row : set.getAsJsonArray("cards")) {
+        JsonObject card = row.getAsJsonObject();
+        cards.add(new SetSnapshot.Card(uuid(card, "id"), string(card, "question"),
+            string(card, "answer"), card.get("position").getAsInt()));
+      }
+      if (!setId.equals(uuid(set, "id"))) { throw new IllegalArgumentException(); }
+      return new SetSnapshot(setId, string(set, "name"), set.get("revision").getAsLong(), cards);
+    } catch (RuntimeException exception) { throw malformed(); }
+  }
+  @Override public synchronized long save(SaveRequest request) throws CloudException {
+    JsonObject body = new JsonObject();
+    body.addProperty("p_operation_id", request.operationId);
+    body.addProperty("p_set_id", request.snapshot.id);
+    body.addProperty("p_name", request.snapshot.name);
+    body.addProperty("p_expected_revision", request.expectedRevision);
+    body.add("p_upserts", gson.toJsonTree(request.upserts));
+    body.add("p_deleted_ids", gson.toJsonTree(request.deletedIds));
+    JsonElement response = authorized(request.userId, "POST", "/rest/v1/rpc/uc5_save_set", body);
+    try {
+      long revision = response.getAsLong();
+      if (revision != request.expectedRevision + 1) { throw new IllegalArgumentException(); }
+      return revision;
+    } catch (RuntimeException exception) { throw malformed(); }
+  }
+
+  private JsonElement authorized(String userId, String method, String path, JsonObject body)
+      throws CloudException {
+    requireUser(userId);
+    if (session.expiresAt <= Instant.now().getEpochSecond() + 30) { refresh(); }
+    try {
+      return request(method, path, body, session.accessToken);
+    } catch (Unauthorized exception) {
+      refresh();
+      try { return request(method, path, body, session.accessToken); }
+      catch (Unauthorized expired) { throw new CloudException("Your session expired. Log in again with the same account; local changes were kept."); }
+    }
+  }
+  private void requireUser(String userId) throws CloudException {
+    if (session == null || !session.user.getId().equals(userId)) {
+      throw new CloudException("Log in again to save or load. Your local changes were kept.");
+    }
+  }
+  private void refresh() throws CloudException {
+    JsonObject body = new JsonObject(); body.addProperty("refresh_token", session.refreshToken);
+    Session previous = session;
+    try {
+      Session candidate = decodeSession(request("POST", "/auth/v1/token?grant_type=refresh_token", body, null)
+          .getAsJsonObject());
+      if (!candidate.user.getId().equals(previous.user.getId())) { throw malformed(); }
+      session = candidate;
+    } catch (Unauthorized exception) {
+      throw new CloudException("Your session expired. Log in again with the same account; local changes were kept.");
+    } catch (RuntimeException exception) { throw malformed(); }
+  }
   private Session decodeSession(JsonObject json) throws CloudException {
     try {
       JsonObject identity = json.getAsJsonObject("user");
@@ -73,10 +156,13 @@ public final class SupabaseGateway implements LoginDataAccessInterface {
       int status = response.statusCode();
       if (status == 401 || status == 403) { throw new Unauthorized(); }
       if (status < 200 || status >= 300) {
+        if (status == 409 || isConflict(response.body())) {
+          throw new CloudException("The cloud copy changed. Your local changes were kept. Save in one app at a time; reconcile this draft before reloading.");
+        }
         if (path.startsWith("/auth/")) {
           throw new CloudException("Authentication failed. Check your credentials, email confirmation, and account settings, then try again.");
         }
-        throw new CloudException("Authentication failed. Check your credentials and account settings, then retry.");
+        throw new CloudException("Cloud request failed. Check database setup and access, then retry; local changes were kept.");
       }
       return response.body().isBlank() ? JsonNull.INSTANCE : JsonParser.parseString(response.body());
     } catch (IOException exception) {
@@ -85,6 +171,10 @@ public final class SupabaseGateway implements LoginDataAccessInterface {
       Thread.currentThread().interrupt();
       throw new CloudException("The request was interrupted. Retry when ready; local changes were kept.");
     } catch (RuntimeException exception) { throw malformed(); }
+  }
+  private boolean isConflict(String body) {
+    try { return "40001".equals(JsonParser.parseString(body).getAsJsonObject().get("code").getAsString()); }
+    catch (RuntimeException exception) { return false; }
   }
   private static String string(JsonObject json, String field) { return json.get(field).getAsString(); }
   private static String uuid(JsonObject json, String field) { return UUID.fromString(string(json, field)).toString(); }
