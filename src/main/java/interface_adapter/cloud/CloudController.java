@@ -2,6 +2,8 @@ package interface_adapter.cloud;
 
 import interface_adapter.login.LoginViewModel;
 import java.util.concurrent.Executor;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import use_case.load_study_sets.LoadStudySetsInputBoundary;
 import use_case.save_study_set.SaveStudySetInputBoundary;
 import use_case.save_study_set.SaveStudySetInputData;
@@ -23,6 +25,13 @@ public final class CloudController {
     String user = userId();
     submit("Loading study sets...", () -> load.list(user));
   }
+  public void refresh(String setId, BooleanSupplier confirmDiscard) {
+    String user = userId();
+    submitPrepared("Refreshing study sets...", () -> {
+      boolean discard = load.needsRefreshConfirmation(user, setId) && confirmDiscard.getAsBoolean();
+      return () -> load.refresh(user, setId, discard);
+    });
+  }
   public void open(String setId) {
     String user = userId();
     submit("Opening study set...", () -> load.open(user, setId));
@@ -32,9 +41,14 @@ public final class CloudController {
     submit("Saving... Keep this window open until the request finishes.", () -> save.execute(input));
   }
   private void submit(String message, Runnable task) {
+    submitPrepared(message, () -> task);
+  }
+  private void submitPrepared(String message, Supplier<Runnable> prepare) {
     if (model.isBusy()) { return; }
     model.message(message); model.setBusy(true);
     try {
+      // Guard the modal confirmation too: deferred PDF results wait until idle.
+      Runnable task = prepare.get();
       worker.execute(() -> {
         try { task.run(); }
         catch (RuntimeException exception) {

@@ -93,6 +93,15 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
     save(user, snapshot.toEntity());
     baselines.put(key(user, snapshot.id), snapshot);
   }
+  @Override public synchronized boolean hasBaseline(String user, String id) {
+    return baselines.containsKey(key(user, id));
+  }
+  @Override public synchronized void replace(String user, SetSnapshot snapshot) throws CloudException {
+    if (!hasBaseline(user, snapshot.id)) { throw new CloudException("The local draft was kept. Save it before refreshing."); }
+    save(user, snapshot.toEntity());
+    baselines.put(key(user, snapshot.id), snapshot);
+    pending.remove(key(user, snapshot.id));
+  }
   @Override public synchronized void mergeSummaries(String user, List<SetSummary> summaries) {
     Map<String, SetSummary> replacement = new LinkedHashMap<>();
     for (SetSummary summary : summaries) { replacement.put(summary.id, summary); }
