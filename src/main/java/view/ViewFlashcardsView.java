@@ -38,7 +38,6 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
   private final JTextArea answerArea = createCardArea();
   private final JButton editButton = new JButton("Edit");
   private JDialog dialog;
-  private long displayGeneration;
 
   /**
    * Builds the view.
@@ -89,11 +88,6 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
   @Override
   public void propertyChange(PropertyChangeEvent evt) {
     final ViewFlashcardsState state = viewModel.getState();
-    final long requestedGeneration = ++displayGeneration;
-    if (state.getStudySetName().isEmpty() && state.getCards().isEmpty() && state.getErrorMessage() == null) {
-      clearSession();
-      return;
-    }
     if (state.getErrorMessage() != null) {
       JOptionPane.showMessageDialog(parent, state.getErrorMessage(), "Error",
           JOptionPane.ERROR_MESSAGE);
@@ -110,20 +104,7 @@ public class ViewFlashcardsView extends JPanel implements PropertyChangeListener
     showSelectedCard();
 
     // Shown after the use case finishes, so the modal pop-up doesn't block it.
-    final String studySetName = state.getStudySetName();
-    SwingUtilities.invokeLater(() -> {
-      if (requestedGeneration == displayGeneration) { showDialog(studySetName); }
-    });
-  }
-
-  /** Clears previews and invalidates any delayed popup from the previous account. */
-  public void clearSession() {
-    viewModel.getState().clear();
-    displayGeneration++;
-    listModel.clear();
-    hintLabel.setText(" ");
-    showSelectedCard();
-    if (dialog != null) { dialog.dispose(); dialog = null; }
+    SwingUtilities.invokeLater(() -> showDialog(state.getStudySetName()));
   }
 
   /**

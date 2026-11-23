@@ -54,8 +54,7 @@ public class EditFlashcardInteractor implements EditFlashcardInputBoundary {
       return;
     }
 
-    final String cardId = cardsList.getCards().get(index).getId();
-    cardsList.replaceCard(index, new Flashcard(cardId, question, answer));     // step 6
+    cardsList.replaceCard(index, new Flashcard(question, answer));     // step 6
     presenter.prepareSuccessView(
         new EditFlashcardOutputData(studySet.getId(), index, question, answer));
   }

@@ -3,15 +3,13 @@
 ## Team Information
 
 ### Team Members
-
 - Wes
 - Ryan
 - Elia
 - Olivia
 - Abel
-
+  
 ---
-
 ## Project Description
 
 ### Domain
@@ -19,7 +17,6 @@
 The Flashcards application turns course materials into practice quizzes and flashcards to help students study. Students may upload notes and chooses what to practice, and the application creates flashcards based off the notes. The user can move and copy existing flashcards into another, new or already existing group of flashcards. Users' tests can be saved on an account which saves the previously created study materials to a cloud Users can also create multiple sets of study materials on each account.
 
 ---
-
 ## User Stories
 
 ### User Story 1: As a student, I want to be able to create flashcards, so that I can build a set of study material tailored to my courses.
@@ -35,7 +32,6 @@ The Flashcards application turns course materials into practice quizzes and flas
 ### User Story 6: As a student, I want to be able to go through and practice with my study set, so that I can review my course material.
 
 ---
-
 ## Use Cases
 
 ### Use Case 1: Add Flashcard to Study Set
@@ -45,13 +41,11 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Primary actor:** Student (User)
 
 **Preconditions:**
-
 - The user has at least one existing study set.
 
 **Trigger:** The user selects "Add Flashcard" within a study set.
 
 **Main success scenario:**
-
 1. The user opens an existing study set.
 2. The user selects "Add Flashcard".
 3. The system displays a form with a question field and an answer field.
@@ -61,7 +55,6 @@ The Flashcards application turns course materials into practice quizzes and flas
 7. The system displays the updated study set, including the new flashcard.
 
 **Extensions:**
-
 - 5a. The question or answer field is empty: the system shows an error message and asks the user to fill in the missing field (return to step 4).
 - 4a. The user cancels: no flashcard is created and the study set is unchanged.
 - 7a. The user wants to add more flashcards: the user selects "Add Flashcard" again (return to step 2).
@@ -77,14 +70,12 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Primary actor:** Student (User)
 
 **Preconditions:**
-
 - The user has a text-based copy of their lecture notes to upload.
 - The AI API (OpenAI/Gemini) is reachable.
 
 **Trigger:** The user selects "Upload Notes" and chooses a file.
 
 **Main success scenario:**
-
 1. The user selects "Upload Notes" and chooses a file containing lecture notes.
 2. The system reads the text from the file.
 3. The system sends the text to the AI API and requests question and answer pairs.
@@ -93,7 +84,6 @@ The Flashcards application turns course materials into practice quizzes and flas
 6. The user accepts the generated flashcards into a study set.
 
 **Extensions:**
-
 - 2a. The file is empty, unreadable, or in an unsupported format: the system shows an error message and asks the user to upload a different file.
 - 4a. The AI API fails or times out: the system shows an error message and lets the user retry or create flashcards manually.
 - 5a. The generated flashcards are inaccurate: the user can edit or delete them before accepting (see Use Case 3).
@@ -109,13 +99,11 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Primary actor:** Student (User)
 
 **Preconditions:**
-
 - The user has a study set containing at least one flashcard.
 
 **Trigger:** The user selects the "Edit" option on an existing flashcard.
 
 **Main success scenario:**
-
 1. The user opens a study set, selects "View Flashcards", chooses a flashcard, and selects "Edit".
 2. The system displays the flashcard's current question and answer in editable fields.
 3. The user changes the question, the answer, or both.
@@ -124,12 +112,11 @@ The Flashcards application turns course materials into practice quizzes and flas
 6. The system updates the flashcard and returns to the study set with a confirmation message. The updated flashcard appears in "View Flashcards".
 
 **Extensions:**
-
 - 5a. A field is empty: the system shows an error message and asks the user to fix it (return to step 3).
 - 4a. The user cancels: the system discards the changes and the flashcard stays as it was.
 - 3a. The user chooses to delete the flashcard instead ("Delete" on the edit form): the system asks for confirmation, then removes it from the study set and returns to the study set with a confirmation message. If the user does not confirm, the flashcard is kept and the edit form stays open.
 
-**Success outcome:** The local flashcard reflects the user's edits. Confirming an edit or deletion changes the working copy; **Save open set** commits these changes to the account.
+**Success outcome:** The flashcard in the study set reflects the user's edits.
 
 ---
 
@@ -140,13 +127,11 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Primary actor:** Student (User)
 
 **Preconditions:**
-
 - The user is logged in to their account.
 
 **Trigger:** The user selects "New Study Set".
 
 **Main success scenario:**
-
 1. The user selects "New Study Set".
 2. The system prompts the user for a name for the study set (for example, a course or subject).
 3. The user enters a name and confirms.
@@ -155,7 +140,6 @@ The Flashcards application turns course materials into practice quizzes and flas
 6. The system opens the new study set so the user can start adding flashcards.
 
 **Extensions:**
-
 - 4a. The name is empty: the system shows an error message and asks for a name (return to step 3).
 - 4b. The user already has a study set with that name: the system asks the user to choose a different name (return to step 3).
 - 3a. The user cancels: no study set is created.
@@ -172,14 +156,12 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Primary actor:** Student (User)
 
 **Preconditions:**
-
 - The user has a study set with new or changed flashcards.
 - The user is logged in (signed up and authenticated through Supabase Auth).
 
-**Trigger:** The user selects "Save open set". Changes are local until explicitly saved.
+**Trigger:** The user selects "Save", or the system auto-saves after a change.
 
 **Main success scenario:**
-
 1. The user selects "Save" on a study set.
 2. The system sends the study set and its flashcards to the Supabase database, linked to the user's account.
 3. Supabase stores the data and confirms.
@@ -187,7 +169,6 @@ The Flashcards application turns course materials into practice quizzes and flas
 5. Later, the user logs in and opens the study set, and the system loads it from Supabase with all its flashcards.
 
 **Extensions:**
-
 - 1a. The user is not logged in: the system prompts the user to log in or sign up, then continues from step 2.
 - 3a. The save fails (for example, no network connection): the system shows an error message, keeps the unsaved changes locally, and lets the user retry.
 - 5a. Login fails because of invalid credentials: the system shows an error message and lets the user try again.
@@ -201,13 +182,11 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Primary actor:** Student (User)
 
 **Preconditions:**
-
 - The user has a study set containing at least one flashcard.
 
 **Trigger:** The user selects "Study" on a study set.
 
 **Main success scenario:**
-
 1. The user opens a study set and selects "Study".
 2. The system displays the first flashcard with only the question visible.
 3. The user tries to recall the answer and selects "Flip".
@@ -218,7 +197,6 @@ The Flashcards application turns course materials into practice quizzes and flas
 8. The system displays a summary showing how many flashcards were marked "Got it" and how many "Still learning".
 
 **Extensions:**
-
 - 2a. The study set has no flashcards: the system shows a message and offers to add flashcards (see Use Case 1).
 - 2b. The user chooses to shuffle: the system randomizes the order of the flashcards before starting.
 - 6a. The user selects "Previous": the system displays the previous flashcard.
@@ -227,8 +205,8 @@ The Flashcards application turns course materials into practice quizzes and flas
 
 **Success outcome:** The user has gone through the flashcards in the study set and can see which ones they know and which they still need to review.
 
----
 
+---
 ## Minimal Viable Product (MVP)
 
 | Team Member | MVP Use Case |
@@ -241,27 +219,17 @@ The Flashcards application turns course materials into practice quizzes and flas
 | Everyone| Practice Study Set |
 
 ---
-
 ## Entities
 
 ### Flashcard
 
-Stable UUID `id`, immutable `question` and `answer`; getters expose these fields. The existing two-argument constructor creates an ID; the three-argument constructor rebuilds the same card from storage.
-
 ### StudySet
-
-Stable UUID `id`, `name`, and `CardsList`; getters expose the local working copy. `StudySetFactory.create` creates a new empty set.
 
 ### CardsList
 
-Ordered flashcards with `addCard`, `removeCard`, `getCards`, and `size`. Local changes are compared with the last acknowledged snapshot when Save is clicked.
-
 ### User
 
-Authenticated UUID `id` and `email`; getters expose identity only. Passwords and access/refresh tokens are never stored in this entity.
-
 ---
-
 ## API Usage
 
 **APIs:** OpenAI/Gemini for flashcard generation, and Supabase for data storage and authentication.
@@ -279,7 +247,6 @@ Authenticated UUID `id` and `email`; getters expose identity only. Passwords and
 - **Supabase Auth:** Users will be able to sign up and log in to their accounts. Their saved study sets and flashcards will be linked to their accounts so they can return to them in later study sessions.
 
 ---
-
 ## Design Diagrams
 
 ### UML Class Diagram
@@ -287,46 +254,15 @@ Authenticated UUID `id` and `email`; getters expose identity only. Passwords and
 ### Sequence Diagrams
 
 ---
-
 ## How to Run
 
 Requires Java 11+ and Maven. From the project directory:
 
 ```sh
 mvn compile exec:java "-Dexec.mainClass=app.Main"
-```
+``
 
-The functional Clean Architecture entrypoint is `app.Main`. `org.example.studyapp.app.Main` is an older UI and does not assemble login or UC5.
+---
+## Notes
 
-### Supabase setup
-
-Before live use, review [database/uc5_setup.sql](database/uc5_setup.sql) and the [setup and verification guide](database/README.md). The application never applies SQL automatically. This fresh-install script creates isolated `uc5_*` tables and functions with explicit grants and ownership RLS; it does not migrate pre-existing tables.
-
-Set environment variables, or put these placeholders in an ignored `.env` in the project directory:
-
-```dotenv
-SUPABASE_URL=https://<project-reference>.supabase.co
-SUPABASE_ANON_KEY=<publishable-key-or-legacy-anon-key>
-```
-
-`SUPABASE_ANON_KEY` accepts modern `sb_publishable_...` keys despite its legacy name. The public key goes in `apikey`; authenticated data requests use the user's access JWT in `Authorization`. Never configure a service-role or secret key. Environment values override `.env`. The existing Gemini generation path retains its own configuration.
-
-### Login and manual Save
-
-Log in with a confirmed email/password account. Sign up submits a registration request and asks you to check email, then log in; no account is created during startup. Sessions and local drafts exist only in memory and are not remembered after exit.
-
-Login loads your cloud set list. Open a set to load its cards; already opened local copies are reused. Create, add cards, and generate cards from notes keep working in one shared local repository. Click **Save open set** to atomically commit the open set's name, changed/new card IDs, explicit deletions, and order. Unchanged cards are not rewritten. There is no automatic cloud write on local edits.
-
-Cloud requests and PDF generation run off the Swing event thread. Editing, navigation, and account changes pause until the request finishes. Save errors keep drafts and the pending operation ID for retry. If an earlier response was lost and you edited again, the next Save confirms that earlier snapshot and tells you to Save once more for newer changes. Reauthenticate with the same account after session expiry. Refreshing the set list keeps local copies. Closing or logging out with unsaved changes or unfinished forms offers Cancel before discarding them.
-
-Use one application session to edit a set at a time. A revision conflict keeps your draft and asks you to reconcile it; automatic merging and a conflict-resolution UI are outside this use case. There is no local disk draft backup. Changes disappear only after a confirmed discard/exit, or if the process is terminated.
-
-### Validation
-
-```sh
-mvn test
-```
-
-Tests include the existing PDF/Gemini fixtures, fake-boundary login/save/load checks, shared create/add/view regressions, asynchronous/session guards, and Java HTTP contracts against a local loopback server. The loopback tests need permission to bind `127.0.0.1`; they do not contact Supabase or create accounts.
-
-The deployed database passed a rollback-only SQL test for save/load, card changes/order/deletions, idempotent retries, revision conflicts, atomic failure, and two-user RLS. Five live anonymous HTTP access checks also passed. After separate test-account signup and email confirmation, a live Java 11 integration test authenticated through the actual login interactor/gateway, verified explicit Save and unchanged repeat behavior, and reopened the exact saved set/cards from a fresh second JVM. Its temporary set/cards/receipts were deleted and verified absent. Visible Swing interaction and an actual lost HTTP response remain **unverified**; see the [verification guide](database/README.md).
+[Any additional project information.]

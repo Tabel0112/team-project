@@ -57,13 +57,6 @@ public class ViewFlashcardsState {
    */
   public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
 
-  /** Removes the previous account's cached flashcard text and title. */
-  public void clear() {
-    studySetName = "";
-    cards = List.of();
-    errorMessage = null;
-  }
-
   /**
    * One flashcard as the view shows it.
    */

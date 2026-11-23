@@ -75,11 +75,6 @@ public class AddFlashcardView extends JPanel implements PropertyChangeListener {
     });
   }
 
-  /** Includes text not yet submitted to the local working repository. */
-  public boolean hasUnsubmittedInput() {
-    return !questionArea.getText().isBlank() || !answerArea.getText().isBlank();
-  }
-
   /**
    * Sets the controller that handles the Add button.
    *

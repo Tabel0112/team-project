@@ -1,24 +1,6 @@
 package app;
 
 import data_access.InMemoryStudySetDataAccessObject;
-import data_access.SupabaseConfig;
-import data_access.SupabaseGateway;
-import interface_adapter.cloud.CloudController;
-import interface_adapter.cloud.CloudPresenter;
-import interface_adapter.cloud.CloudViewModel;
-import use_case.login.LoginInteractor;
-import use_case.save_study_set.SaveStudySetInteractor;
-import use_case.load_study_sets.LoadStudySetsInteractor;
-import view.CloudPanel;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import data_access.PdfBoxTextReader;
 import entity.StudySetFactory;
 import interface_adapter.ViewManagerModel;
@@ -72,9 +54,6 @@ public class AppBuilder {
   private final InMemoryStudySetDataAccessObject studySetDao =
           new InMemoryStudySetDataAccessObject();
 
-  private final CloudViewModel cloudModel = new CloudViewModel();
-  private CloudController cloudController;
-  private ExecutorService cloudWorker;
   private CreateStudySetInteractor createStudySet;
   private CreateStudySetViewModel createStudySetViewModel;
   private StudySetViewModel studySetViewModel;
@@ -83,8 +62,6 @@ public class AppBuilder {
   private AddFlashcardViewModel addFlashcardViewModel;
   private AddFlashcardView addFlashcardView;
   private ViewFlashcardsViewModel viewFlashcardsViewModel;
-  private ViewFlashcardsView viewFlashcardsView;
-  private UploadNotesPanel uploadNotesPanel;
   private EditFlashcardViewModel editFlashcardViewModel;
   private EditFlashcardView editFlashcardView;
 
@@ -99,7 +76,7 @@ public class AppBuilder {
    * @return the current user's id
    */
   private String currentUserId() {
-    return cloudModel.getUser() == null ? null : cloudModel.getUser().getId();
+    return "demo-user";   // TODO: replace with the logged-in user's id from Supabase Auth
   }
 
   /**
@@ -109,7 +86,9 @@ public class AppBuilder {
    * @param item the study set that was clicked
    */
   private void openStudySet(CreateStudySetState.Item item) {
-    if (cloudController != null) { cloudController.open(item.getId()); }
+    studySetViewModel.getState().open(item.getId(), item.getName(), item.getCardCount());
+    studySetViewModel.firePropertyChanged();
+    viewManagerModel.setActiveView(StudySetViewModel.VIEW_NAME);
   }
 
   /**
@@ -195,7 +174,7 @@ public class AppBuilder {
    */
   public AppBuilder addViewFlashcardsView() {
     viewFlashcardsViewModel = new ViewFlashcardsViewModel();
-    viewFlashcardsView = new ViewFlashcardsView(viewFlashcardsViewModel, studySetView, this::openEditFlashcardForm);
+    new ViewFlashcardsView(viewFlashcardsViewModel, studySetView, this::openEditFlashcardForm);
     return this;
   }
 
@@ -304,87 +283,21 @@ public class AppBuilder {
    */
   public JFrame build() {
     final JFrame frame = new JFrame("Study App");
-    final SupabaseGateway gateway = new SupabaseGateway(SupabaseConfig.load());
-    final CloudPresenter presenter = new CloudPresenter(cloudModel, createStudySetViewModel,
-        studySetViewModel, viewManagerModel, SwingUtilities::invokeLater);
-    cloudWorker = Executors.newSingleThreadExecutor(task -> {
-      Thread thread = new Thread(task, "supabase-worker"); thread.setDaemon(true); return thread;
-    });
-    cloudController = new CloudController(new LoginInteractor(gateway, presenter),
-        new SaveStudySetInteractor(studySetDao, gateway, presenter),
-        new LoadStudySetsInteractor(studySetDao, gateway, presenter), gateway, studySetDao,
-        cloudModel, cloudWorker, SwingUtilities::invokeLater);
-    JTabbedPane pages = buildPages(new UploadNotesInteractor(new PdfBoxTextReader()));
-    JPanel root = new JPanel(new BorderLayout());
-    root.add(new CloudPanel(cloudModel, cloudController,
-        () -> studySetViewModel.getState().getStudySetId(), () -> logout(frame)), BorderLayout.NORTH);
-    root.add(pages, BorderLayout.CENTER);
-    cloudModel.addPropertyChangeListener(event ->
-        setTreeEnabled(pages, cloudModel.getUser() != null && !cloudModel.isBusy()));
-    setTreeEnabled(pages, false);
-    frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-    frame.addWindowListener(new WindowAdapter() {
-      @Override public void windowClosing(WindowEvent event) {
-        if (cloudModel.isBusy()) {
-          cloudModel.message("Please wait for the current request before closing. Local changes are still here.");
-        } else if (confirmDiscard(frame, "close the application")) {
-          cloudController.logout(); clearSessionViews(); cloudWorker.shutdown(); frame.dispose();
-        }
-      }
-    });
-    frame.add(root);
-    frame.setMinimumSize(new Dimension(1100, 700));
-    frame.setSize(1250, 760);
+    frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+    frame.add(buildPages(new UploadNotesInteractor(new PdfBoxTextReader())));
+    frame.setMinimumSize(new Dimension(900, 620));
+    frame.setSize(1100, 720);
     return frame;
-  }
-
-  private boolean confirmDiscard(Component parent, String action) {
-    if (!cloudController.hasUnsaved() && !createStudySetView.hasUnsubmittedInput()
-        && !addFlashcardView.hasUnsubmittedInput() && !editFlashcardView.hasUnsubmittedInput()) { return true; }
-    return JOptionPane.showConfirmDialog(parent,
-        "There are unsaved local changes or unfinished form entries. They will be lost if you "
-        + action + ". Choose Cancel to return and Save or retry first.",
-        "Unsaved changes", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION;
-  }
-
-  private void logout(Component parent) {
-    if (!cloudModel.isBusy() && confirmDiscard(parent, "log out")) {
-      cloudController.logout();
-      clearSessionViews();
-    }
-  }
-
-  /** Clears both visible fields and cached account data after a confirmed logout/close. */
-  private void clearSessionViews() {
-    uploadNotesPanel.clearSession();
-    createStudySetViewModel.getState().setStudySets(java.util.List.of());
-    createStudySetViewModel.getState().setCreatedStudySetId(null);
-    createStudySetViewModel.getState().setName("");
-    createStudySetViewModel.getState().setErrorMessage(null);
-    createStudySetView.clearInput(); createStudySetViewModel.firePropertyChanged();
-    addFlashcardViewModel.getState().clear(); addFlashcardViewModel.firePropertyChanged();
-    editFlashcardViewModel.getState().clear(); editFlashcardViewModel.firePropertyChanged();
-    viewFlashcardsView.clearSession();
-    studySetViewModel.getState().open("", "", 0); studySetViewModel.firePropertyChanged();
-    viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
-  }
-
-  private static void setTreeEnabled(Component component, boolean enabled) {
-    component.setEnabled(enabled);
-    if (component instanceof Container) {
-      for (Component child : ((Container) component).getComponents()) { setTreeEnabled(child, enabled); }
-    }
   }
 
   public JTabbedPane buildPages(UploadNotesInteractor uploadNotes) {
     final JTabbedPane pages = new JTabbedPane();
     pages.addTab("Study sets", cardPanel);
-    uploadNotesPanel = new UploadNotesPanel(uploadNotes, (title, cards) -> {
+    pages.addTab("Upload PDF", new UploadNotesPanel(uploadNotes, (title, cards) -> {
       createStudySet.createFromNotes(currentUserId(), title, cards);
       viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
       pages.setSelectedComponent(cardPanel);
-    }, cloudModel::scope, cloudModel::setBusy);
-    pages.addTab("Upload PDF", uploadNotesPanel);
+    }));
     pages.addTab("Review", new JPanel());       // placeholder for a future use case
 
     viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
