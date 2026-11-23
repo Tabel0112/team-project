@@ -90,7 +90,6 @@ public class CreateStudySetView extends JPanel implements PropertyChangeListener
 
   /** Whether leaving the application would discard a typed, unsubmitted name. */
   public boolean hasUnsubmittedInput() { return !nameField.getText().isBlank(); }
-  public void clearInput() { nameField.setText(""); }
 
   /**
    * Sets the controller that handles the Create button.

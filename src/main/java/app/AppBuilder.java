@@ -1,24 +1,6 @@
 package app;
 
 import data_access.InMemoryStudySetDataAccessObject;
-import data_access.SupabaseConfig;
-import data_access.SupabaseGateway;
-import interface_adapter.cloud.CloudController;
-import interface_adapter.cloud.CloudPresenter;
-import interface_adapter.cloud.CloudViewModel;
-import use_case.login.LoginInteractor;
-import use_case.save_study_set.SaveStudySetInteractor;
-import use_case.load_study_sets.LoadStudySetsInteractor;
-import view.CloudPanel;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import data_access.PdfBoxTextReader;
 import entity.StudySetFactory;
 import interface_adapter.ViewManagerModel;
@@ -72,9 +54,6 @@ public class AppBuilder {
   private final InMemoryStudySetDataAccessObject studySetDao =
           new InMemoryStudySetDataAccessObject();
 
-  private final CloudViewModel cloudModel = new CloudViewModel();
-  private CloudController cloudController;
-  private ExecutorService cloudWorker;
   private CreateStudySetInteractor createStudySet;
   private CreateStudySetViewModel createStudySetViewModel;
   private StudySetViewModel studySetViewModel;
@@ -83,7 +62,10 @@ public class AppBuilder {
   private AddFlashcardViewModel addFlashcardViewModel;
   private AddFlashcardView addFlashcardView;
   private ViewFlashcardsViewModel viewFlashcardsViewModel;
+<<<<<<< HEAD
   private UploadNotesPanel uploadNotesPanel;
+=======
+>>>>>>> b93cac2 (Revert direct integration of Login and Save/Load)
   private EditFlashcardViewModel editFlashcardViewModel;
   private EditFlashcardView editFlashcardView;
 
@@ -98,7 +80,7 @@ public class AppBuilder {
    * @return the current user's id
    */
   private String currentUserId() {
-    return cloudModel.getUser() == null ? null : cloudModel.getUser().getId();
+    return "demo-user";   // TODO: replace with the logged-in user's id from Supabase Auth
   }
 
   /**
@@ -108,7 +90,9 @@ public class AppBuilder {
    * @param item the study set that was clicked
    */
   private void openStudySet(CreateStudySetState.Item item) {
-    if (cloudController != null) { cloudController.open(item.getId()); }
+    studySetViewModel.getState().open(item.getId(), item.getName(), item.getCardCount());
+    studySetViewModel.firePropertyChanged();
+    viewManagerModel.setActiveView(StudySetViewModel.VIEW_NAME);
   }
 
   /**
@@ -370,12 +354,11 @@ public class AppBuilder {
   public JTabbedPane buildPages(UploadNotesInteractor uploadNotes) {
     final JTabbedPane pages = new JTabbedPane();
     pages.addTab("Study sets", cardPanel);
-    uploadNotesPanel = new UploadNotesPanel(uploadNotes, (title, cards) -> {
+    pages.addTab("Upload PDF", new UploadNotesPanel(uploadNotes, (title, cards) -> {
       createStudySet.createFromNotes(currentUserId(), title, cards);
       viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
       pages.setSelectedComponent(cardPanel);
-    }, cloudModel::scope, cloudModel::setBusy);
-    pages.addTab("Upload PDF", uploadNotesPanel);
+    }));
     pages.addTab("Review", new JPanel());       // placeholder for a future use case
 
     viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
