@@ -28,11 +28,13 @@ public class Main {
             .addAddFlashcardView()
         .addViewFlashcardsView()
             .addEditFlashcardView()
+            .addReviewViews()
             .addCreateStudySetUseCase()
             .addAddFlashcardUseCase()
         .addViewFlashcardsUseCase()
             .addEditFlashcardUseCase()
             .addDeleteFlashcardUseCase()
+            .addPracticeStudySetUseCase()
             .build();
 
     application.setLocationRelativeTo(null);

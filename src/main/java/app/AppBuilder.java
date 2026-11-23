@@ -40,6 +40,9 @@ import interface_adapter.delete_flashcard.DeleteFlashcardPresenter;
 import interface_adapter.edit_flashcard.EditFlashcardController;
 import interface_adapter.edit_flashcard.EditFlashcardPresenter;
 import interface_adapter.edit_flashcard.EditFlashcardViewModel;
+import interface_adapter.practice_study_set.PracticeStudySetController;
+import interface_adapter.practice_study_set.PracticeStudySetPresenter;
+import interface_adapter.practice_study_set.PracticeStudySetViewModel;
 import interface_adapter.study_set.StudySetViewModel;
 import interface_adapter.view_flashcards.ViewFlashcardsController;
 import interface_adapter.view_flashcards.ViewFlashcardsPresenter;
@@ -49,10 +52,13 @@ import use_case.add_flashcard.AddFlashcardInteractor;
 import use_case.create_study_set.CreateStudySetInteractor;
 import use_case.delete_flashcard.DeleteFlashcardInteractor;
 import use_case.edit_flashcard.EditFlashcardInteractor;
+import use_case.practice_study_set.PracticeStudySetInteractor;
 import use_case.upload_notes.UploadNotesInteractor;
 import view.AddFlashcardView;
 import view.CreateStudySetView;
 import view.EditFlashcardView;
+import view.PracticeStudySetView;
+import view.ReviewStudySetsView;
 import view.StudySetView;
 import view.UploadNotesPanel;
 import use_case.view_flashcards.ViewFlashcardsInteractor;
@@ -99,6 +105,15 @@ public class AppBuilder {
   private ViewFlashcardsViewModel viewFlashcardsViewModel;
   private EditFlashcardViewModel editFlashcardViewModel;
   private EditFlashcardView editFlashcardView;
+
+  private final CardLayout reviewCardLayout = new CardLayout();
+  private final JPanel reviewCardPanel = new JPanel(reviewCardLayout);
+  private final ViewManagerModel reviewViewManagerModel = new ViewManagerModel();
+  private final ViewManager reviewViewManager =
+          new ViewManager(reviewCardPanel, reviewCardLayout, reviewViewManagerModel);
+  private final PracticeStudySetViewModel practiceStudySetViewModel =
+          new PracticeStudySetViewModel();
+  private ReviewStudySetsView reviewStudySetsView;
 
   /**
    * Creates an empty builder.
@@ -300,6 +315,41 @@ public class AppBuilder {
   }
 
   /**
+   * Creates the two views in the Review tab: the list of study sets to review, and
+   * the practice view that flips through one study set's flashcards. Requires
+   * {@link #addCreateStudySetView()} to have been called, since the list shows the
+   * same study sets as the Study sets tab.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addReviewViews() {
+    reviewStudySetsView =
+            new ReviewStudySetsView(createStudySetViewModel, practiceStudySetViewModel);
+    final PracticeStudySetView practiceStudySetView = new PracticeStudySetView(
+            practiceStudySetViewModel,
+            () -> reviewViewManagerModel.setActiveView(ReviewStudySetsView.VIEW_NAME));
+    reviewCardPanel.add(reviewStudySetsView, ReviewStudySetsView.VIEW_NAME);
+    reviewCardPanel.add(practiceStudySetView, PracticeStudySetView.VIEW_NAME);
+    reviewViewManagerModel.setActiveView(ReviewStudySetsView.VIEW_NAME);
+    return this;
+  }
+
+  /**
+   * Creates the Practice Study Set interactor, presenter and controller, and gives the
+   * controller to the review list. Requires {@link #addReviewViews()} to have been called.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addPracticeStudySetUseCase() {
+    final PracticeStudySetPresenter presenter =
+            new PracticeStudySetPresenter(practiceStudySetViewModel, reviewViewManagerModel);
+    final PracticeStudySetInteractor interactor =
+            new PracticeStudySetInteractor(studySetDao, presenter);
+    reviewStudySetsView.setController(new PracticeStudySetController(interactor));
+    return this;
+  }
+
+  /**
    * Creates the Create Study Set interactor, presenter and controller, and gives the
    * controller to the view. Requires {@link #addCreateStudySetView()} and
    * {@link #addStudySetView()} to have been called.
@@ -412,6 +462,8 @@ public class AppBuilder {
     addViewFlashcardsView();
     addViewFlashcardsUseCase();
     studySetViewModel.getState().open("", "", 0); studySetViewModel.firePropertyChanged();
+    practiceStudySetViewModel.getState().clear(); practiceStudySetViewModel.firePropertyChanged();
+    reviewViewManagerModel.setActiveView(ReviewStudySetsView.VIEW_NAME);
     viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
   }
 
@@ -428,7 +480,7 @@ public class AppBuilder {
     pages.addTab("Study sets", cardPanel);
     pages.addTab("Upload PDF", new JPanel());
     replaceUploadPanel();
-    pages.addTab("Review", new JPanel());       // placeholder for a future use case
+    pages.addTab("Review", reviewCardPanel);
     viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME);
     return pages;
   }
