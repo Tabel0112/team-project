@@ -40,7 +40,7 @@ public final class LoginController {
     String previousScope = model.scope();
     String requiredUserId = model.getUser() == null ? null : model.getUser().getId();
     LoginInputData input = new LoginInputData(email, password, signup, requiredUserId);
-    model.message("Contacting authentication...");
+    model.message(signup ? "Submitting signup..." : "Logging in...");
     model.setBusy(true);
     try {
       worker.execute(() -> {

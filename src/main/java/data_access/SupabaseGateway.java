@@ -20,6 +20,9 @@ import java.util.UUID;
 /** Java 11 HTTP adapter. Public API key identifies the app; the access JWT identifies the user. */
 public final class SupabaseGateway implements LoginDataAccessInterface,
     LoadStudySetsDataAccessInterface, SaveStudySetDataAccessInterface {
+  private static final String SESSION_EXPIRED_MESSAGE =
+      "Your session expired. Log in again with the same account, then retry. Your local changes were kept.";
+
   private final SupabaseConfig config;
   private final HttpClient http;
   private final Gson gson = new Gson();
@@ -111,7 +114,7 @@ public final class SupabaseGateway implements LoginDataAccessInterface,
     } catch (Unauthorized exception) {
       refresh();
       try { return request(method, path, body, session.accessToken); }
-      catch (Unauthorized expired) { throw new CloudException("Your session expired. Log in again with the same account; local changes were kept."); }
+      catch (Unauthorized expired) { throw new CloudException(SESSION_EXPIRED_MESSAGE); }
     }
   }
   private void requireUser(String userId) throws CloudException {
@@ -128,7 +131,7 @@ public final class SupabaseGateway implements LoginDataAccessInterface,
       if (!candidate.user.getId().equals(previous.user.getId())) { throw malformed(); }
       session = candidate;
     } catch (Unauthorized exception) {
-      throw new CloudException("Your session expired. Log in again with the same account; local changes were kept.");
+      throw new CloudException(SESSION_EXPIRED_MESSAGE);
     } catch (RuntimeException exception) { throw malformed(); }
   }
   private Session decodeSession(JsonObject json) throws CloudException {

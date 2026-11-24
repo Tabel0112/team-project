@@ -11,7 +11,7 @@ public final class LoginPanel extends JPanel {
     super(new BorderLayout());
     JTextField email = new JTextField(22);
     JPasswordField password = new JPasswordField(14);
-    JButton login = new JButton("Log in / Reauthenticate");
+    JButton login = new JButton("Log in");
     JButton signup = new JButton("Sign up");
     JButton logout = new JButton("Log out");
     JLabel account = new JLabel("Not logged in");
