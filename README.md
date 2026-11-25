@@ -163,10 +163,10 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Preconditions:**
 - The user has an account with a confirmed email address.
 
-**Trigger:** The user selects "Log in / Reauthenticate".
+**Trigger:** The user selects "Log in".
 
 **Main success scenario:**
-1. The user enters their email and password and selects "Log in / Reauthenticate".
+1. The user enters their email and password and selects "Log in".
 2. The system validates the email and password input.
 3. The system verifies the credentials and signs the user in.
 4. The system confirms the login and enables the account's study set features.
@@ -175,6 +175,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 - 1a. The user needs an account: the user selects "Sign up", confirms their email, and returns to step 1.
 - 2a. A field is missing or the email is invalid: the system asks the user to correct the input (return to step 1).
 - 3a. The credentials are incorrect or the email is unconfirmed: the system shows an error and lets the user try again (return to step 1).
+- 4a. If the session expires and automatic renewal fails, the user logs in again with the same account to keep their unsaved work.
 
 **Success outcome:** The user is signed in and can access their account's study features.
 

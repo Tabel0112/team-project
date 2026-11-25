@@ -16,7 +16,7 @@ public final class LoginInteractor implements LoginInputBoundary {
         output.failed("Enter your email and password.");
       } else if (input.signup) {
         auth.signup(input.email, input.password);
-        output.signupSubmitted("If registration is available, check your email for confirmation, then log in.");
+        output.signupSubmitted("Already have an account? Log in. Otherwise, check your email for a confirmation link.");
       } else {
         entity.User user = auth.login(input.email, input.password, input.requiredUserId);
         output.loggedIn(new LoginOutputData(user.getId(), user.getEmail()));
