@@ -33,6 +33,8 @@ The Flashcards application turns course materials into practice quizzes and flas
 
 ### User Story 7: As a student, I want to be able to go through and practice with my study set, so that I can review my course material.
 
+### User Story 8: As a student, I want to be able to edit and delete my old practice sets, so that I can keep my materials organized. 
+
 ---
 ## Use Cases
 
@@ -239,7 +241,31 @@ The Flashcards application turns course materials into practice quizzes and flas
 
 **Success outcome:** The user has gone through the flashcards in the study set and can see which ones they know and which they still need to review.
 
+---
+### Use Case 8: Edit Study Set
 
+**Name:** Edit Study Set
+
+**Primary actor:** Student (User)
+
+**Preconditions:**
+- The user has at least one study set.
+
+**Trigger:** The user selects "Edit" on a study set.
+
+**Main success scenario:**
+1. The user selects a study set and presses "Edit".
+2. The system displays the available editing options: delete the study set, edit its name, or move its position up or down in the list.
+3. The user selects an editing option.
+4. The system performs the selected action.
+5. The system displays the updated list of study sets.
+
+**Extensions:**
+- 2a. The user chooses to delete the study set: the system asks the user to confirm the deletion.
+- 2b. The user chooses to move the set up or down: the system will not allow the user to move the set down if it is already at the bottom, or move it up if it already at the top.
+- 4a. The user chooses to edit the name: the system will reject the new name if the name is invalid.
+
+**Success outcome:** The user has gone through the flashcards in the study set and can see which ones they know and which they still need to review.
 ---
 ## Minimal Viable Product (MVP)
 
@@ -251,7 +277,8 @@ The Flashcards application turns course materials into practice quizzes and flas
 | Olivia | Create Multiple Sets of Flashcards |
 | Abel | Login |
 | Abel | Save and Load Study Sets |
-| Everyone| Practice Study Set |
+| Wes | Practice Study Set |
+| Olivia | Edit Study Set |
 
 ---
 ## Entities
