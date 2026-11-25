@@ -265,7 +265,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 - 2b. The user chooses to move the set up or down: the system will not allow the user to move the set down if it is already at the bottom, or move it up if it already at the top.
 - 4a. The user chooses to edit the name: the system will reject the new name if the name is invalid.
 
-**Success outcome:** The user has gone through the flashcards in the study set and can see which ones they know and which they still need to review.
+**Success outcome:** The study set is deleted, renamed or moved, and the updated list is shown
 ---
 ## Minimal Viable Product (MVP)
 
