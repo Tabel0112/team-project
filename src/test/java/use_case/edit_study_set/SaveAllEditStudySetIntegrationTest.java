@@ -1,6 +1,7 @@
 package use_case.edit_study_set;
 
 import data_access.InMemoryStudySetDataAccessObject;
+import entity.StudySet;
 import interface_adapter.edit_study_set.EditStudySetController;
 import org.junit.Test;
 import use_case.cloud.SaveRequest;
@@ -47,10 +48,12 @@ public class SaveAllEditStudySetIntegrationTest {
     edit.delete(user, deletedSet);
     assertTrue(local.hasUnsaved(user));
     assertEquals(2, cloud.list(user).size());
-    load.list(user);
+    local.save(user, new StudySet("draft", "Unsaved draft"));
+    load.refresh(user);
     assertEquals(2, initialList.listed.size());
     assertEquals(deletedSet, initialList.listed.get(0).id);
     assertTrue(local.pendingDeletions(user).isEmpty()); assertFalse(local.hasUnsaved(user));
+    assertFalse(local.contains(user, "draft"));
 
     List<SaveAllStudySetsOutputData> outcomes = new ArrayList<>();
     SaveAllStudySetsInteractor save = new SaveAllStudySetsInteractor(local, cloud, new SaveAllStudySetsOutputBoundary() {
@@ -72,7 +75,7 @@ public class SaveAllEditStudySetIntegrationTest {
     assertEquals(1, outcomes.get(1).deletedCount);
     assertEquals(List.of(deletedSet), cloud.deleted);
     assertFalse(local.hasUnsaved(user));
-    load.list(user);
+    load.refresh(user);
     assertEquals(1, initialList.listed.size());
     assertEquals("chemistry", initialList.listed.get(0).id);
     save.execute(user); assertEquals(List.of(deletedSet), cloud.deleted);
@@ -111,6 +114,7 @@ public class SaveAllEditStudySetIntegrationTest {
     private List<SetSummary> listed;
 
     @Override public void listed(List<SetSummary> sets) { listed = sets; }
+    @Override public void refreshed(List<SetSummary> sets) { listed = sets; }
 
     @Override public void opened(SetSnapshot set) { fail("No set should be opened."); }
 

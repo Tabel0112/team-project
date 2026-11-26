@@ -190,7 +190,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 - The user is logged in (see Use Case 5).
 - The user has local study changes to save or wants to open a saved set.
 
-**Trigger:** The user selects "Save All" from the list or an open set, or opens a saved study set from the list.
+**Trigger:** The user selects "Save All", opens a saved study set, or selects "Refresh".
 
 **Main success scenario:**
 1. The user selects "Save All". Changes stay local until this step.
@@ -203,8 +203,8 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Extensions:**
 - 1a. The user only wants to open a previously saved set: the user selects it from the list (continue at step 6).
 - 2a. An operation fails: the system continues with independent changes, reports partial results, and keeps failed changes or deletions for retry through "Save All" (return to step 1). The batch is not a transaction across sets.
-- 2b. A saved study set is deleted locally: it disappears and stays queued until "Save All" confirms deletion. Before saving, a successful "Refresh set list" restores sets still present in the account and cancels their queued deletions. Absent sets stay queued, and a failed refresh keeps the queue unchanged. A draft never submitted for saving is removed locally.
-- 4a. The list fails to load: the system shows an error and lets the user select "Refresh set list" to retry.
+- 2b. A saved study set is deleted locally: it disappears and stays queued until "Save All" confirms deletion. A draft never submitted for saving is removed locally.
+- 4a. The user selects "Refresh": the system asks "Discard all unsaved changes and reload from your account?" Cancel keeps the current work and screen without making a request. On confirmation, a successful reload discards all local edits, new drafts, pending saves, and queued deletions, then returns to the saved-set list. Sets load fresh when opened. A failed reload keeps local work and the current screen intact.
 - 6a. A local working copy already exists: the system opens that copy with any unsaved changes intact.
 - 6b. The study set fails to load: the system shows an error, keeps existing local drafts, and lets the user try again (return to step 5).
 
@@ -404,7 +404,7 @@ SUPABASE_ANON_KEY=<publishable-key-or-legacy-anon-key>
 
 ### Login and manual Save
 
-Log in with a confirmed account, or sign up and confirm your email first. Changes stay local until you click **Save All**. It submits queued set deletions first, then saves all new and changed sets. Before Save All, **Refresh set list** can restore a locally deleted set still saved in your account. Saved sets appear in your list when you log in again. If some operations fail, successful operations stay saved and failed work remains available for retry. The app asks for confirmation before discarding unsaved study changes, including queued deletions, when you log out or close it.
+Log in with a confirmed account, or sign up and confirm your email first. Changes stay local until you click **Save All**. It submits queued set deletions first, then saves all new and changed sets. **Refresh** asks before discarding all unsaved work and reloading the signed-in account's saved-set list. It keeps you signed in, and sets load fresh when opened. Cancel or a failed reload preserves your work. If some Save All operations fail, successful operations stay saved and failed work remains available for retry. The app also asks before discarding unsaved study changes when you log out or close it.
 
 ### Validation
 

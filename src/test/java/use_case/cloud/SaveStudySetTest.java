@@ -169,6 +169,7 @@ public class SaveStudySetTest {
   private static class LoadOutput implements LoadStudySetsOutputBoundary {
     String error; SetSnapshot opened;
     public void listed(List<SetSummary> sets) { }
+    public void refreshed(List<SetSummary> sets) { }
     public void opened(SetSnapshot set) { opened = set; }
     public void failed(String message) { error = message; }
   }

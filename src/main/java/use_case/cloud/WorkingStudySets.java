@@ -18,6 +18,8 @@ public interface WorkingStudySets {
   boolean contains(String userId, String setId);
   void install(String userId, SetSnapshot snapshot) throws CloudException;
   void mergeSummaries(String userId, List<SetSummary> summaries);
+  /** Discards only this account's work after a successful complete cloud list. */
+  void resetToSummaries(String userId, List<SetSummary> summaries);
   List<SetSummary> summaries(String userId);
   SetSnapshot local(String userId, String setId);
   void clear();

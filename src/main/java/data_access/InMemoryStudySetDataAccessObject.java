@@ -156,16 +156,23 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
     Set<String> listed = new LinkedHashSet<>();
     for (SetSummary summary : summaries) {
       listed.add(summary.id);
-      // A successful cloud list restores saved sets removed only locally. The
-      // discarded working copy stays absent, so opening loads its saved version.
-      Set<String> queued = deletions.get(user);
-      if (queued != null && queued.remove(summary.id)) {
-        deletionCreates.remove(key(user, summary.id));
-      }
-      replacement.put(summary.id, summary);
+      if (!queuedForDeletion(user, summary.id)) { replacement.put(summary.id, summary); }
     }
     cloudListedIds.put(user, listed);
     indexes.put(user, replacement);
+  }
+  @Override public synchronized void resetToSummaries(String user, List<SetSummary> summaries) {
+    Map<String, SetSummary> replacement = new LinkedHashMap<>();
+    Set<String> listed = new LinkedHashSet<>();
+    for (SetSummary summary : summaries) { replacement.put(summary.id, summary); listed.add(summary.id); }
+    // Build the fresh index before discarding any local work. Other accounts keep
+    // their working copies, baselines, and operation receipts.
+    sets.remove(user); deletions.remove(user);
+    String prefix = user + "/";
+    baselines.keySet().removeIf(key -> key.startsWith(prefix));
+    pending.keySet().removeIf(key -> key.startsWith(prefix));
+    deletionCreates.keySet().removeIf(key -> key.startsWith(prefix));
+    indexes.put(user, replacement); cloudListedIds.put(user, listed);
   }
   @Override public synchronized List<SetSummary> summaries(String user) {
     Map<String, SetSummary> result = new LinkedHashMap<>(indexes.getOrDefault(user, Map.of()));

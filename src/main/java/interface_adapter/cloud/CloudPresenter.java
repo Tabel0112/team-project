@@ -24,9 +24,11 @@ public final class CloudPresenter implements LoadStudySetsOutputBoundary,
   private final StudySetViewModel set;
   private final ViewManagerModel views;
   private final Executor ui;
+  private final Runnable resetViews;
   public CloudPresenter(LoginViewModel cloud, CreateStudySetViewModel list,
-      StudySetViewModel set, ViewManagerModel views, Executor ui) {
+      StudySetViewModel set, ViewManagerModel views, Executor ui, Runnable resetViews) {
     this.cloud = cloud; this.list = list; this.set = set; this.views = views; this.ui = ui;
+    this.resetViews = resetViews;
   }
   @Override public void failed(String message) { ui.execute(() -> cloud.message(message)); }
   @Override public void saved(SaveStudySetOutputData output) {
@@ -68,6 +70,17 @@ public final class CloudPresenter implements LoadStudySetsOutputBoundary,
       }
       list.getState().setStudySets(items); list.firePropertyChanged();
       cloud.message("Study sets loaded. Unsaved local drafts were kept. Open a set to load its cards.");
+    });
+  }
+  @Override public void refreshed(List<SetSummary> summaries) {
+    ui.execute(() -> {
+      resetViews.run();
+      List<CreateStudySetState.Item> items = new ArrayList<>();
+      for (SetSummary summary : summaries) {
+        items.add(new CreateStudySetState.Item(summary.id, summary.name, -1));
+      }
+      list.getState().setStudySets(items); list.firePropertyChanged();
+      cloud.message("Study sets reloaded from your account. Open a set to load its saved cards.");
     });
   }
   @Override public void opened(SetSnapshot snapshot) {

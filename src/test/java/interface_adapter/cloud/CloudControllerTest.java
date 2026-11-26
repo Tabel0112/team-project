@@ -56,9 +56,9 @@ public class CloudControllerTest {
     CloudController cloud = new CloudController(input -> { },
         new LoadStub() { @Override public void list(String user) { lists[0]++; } }, model, worker, ui);
     LoginController controller = new LoginController(new LoginInteractor(auth, new LoginPresenter(model, ui)),
-        auth, model, worker, ui, () -> { }, cloud::refresh);
+        auth, model, worker, ui, () -> { }, cloud::list);
     controller.login("student@example.test", "example".toCharArray(), false);
-    cloud.refresh(); assertEquals(1, worker.tasks.size());
+    cloud.list(); assertEquals(1, worker.tasks.size());
     worker.drain(); assertNull(model.getUser()); ui.drain();
     assertEquals("user", model.getUser().getId()); assertTrue(model.isBusy());
     worker.drain(); ui.drain(); assertEquals(1, lists[0]); assertFalse(model.isBusy());
@@ -80,7 +80,7 @@ public class CloudControllerTest {
         assertEquals("user", user); batches[0]++;
       }, new LoadStub(), model, worker, ui);
       LoginController login = new LoginController(input -> fail(), new Auth(), model, worker, ui, local::clear);
-      CloudPanel panel = new CloudPanel(model, controller);
+      CloudPanel panel = new CloudPanel(model, controller, () -> true);
       JButton saveAll = null;
       for (java.awt.Component child : panel.getComponents()) {
         if (child instanceof JButton && "Save All".equals(((JButton) child).getText())) {
@@ -103,7 +103,7 @@ public class CloudControllerTest {
     LoginViewModel model = new LoginViewModel(); Tasks ui = new Tasks();
     StudySetViewModel set = new StudySetViewModel(); ViewManagerModel views = new ViewManagerModel();
     views.setActiveView("list");
-    CloudPresenter presenter = new CloudPresenter(model, new CreateStudySetViewModel(), set, views, ui);
+    CloudPresenter presenter = new CloudPresenter(model, new CreateStudySetViewModel(), set, views, ui, () -> { });
     String previous = model.getMessage();
     presenter.savedAll(new SaveAllStudySetsOutputData(2, 1, List.of("Delete: offline"), true));
     assertEquals(previous, model.getMessage()); assertEquals(1, ui.tasks.size());
@@ -115,6 +115,36 @@ public class CloudControllerTest {
     presenter.savedAll(new SaveAllStudySetsOutputData(0, 0, List.of(), false)); ui.drain();
     assertEquals("No unsaved study changes.", model.getMessage());
   }
+  @Test public void cancelledRefreshMarksBusyBeforePromptAndDoesNotChangeStatusOrQueueAnyRequest() {
+    LoginViewModel model = new LoginViewModel(); model.setUser(new User("user", "email"));
+    Tasks worker = new Tasks(), ui = new Tasks(); String previous = model.getMessage();
+    CloudController controller = new CloudController(input -> fail(), new LoadStub() {
+      @Override public void list(String user) { fail("No list on cancellation"); }
+      @Override public void refresh(String user) { fail("No refresh on cancellation"); }
+    }, model, worker, ui);
+    controller.refresh(() -> {
+      assertTrue(model.isBusy());
+      controller.list(); controller.saveAll();
+      controller.refresh(() -> { fail("No nested confirmation while busy"); return true; });
+      return false;
+    });
+    assertFalse(model.isBusy()); assertEquals(previous, model.getMessage());
+    assertTrue(worker.tasks.isEmpty()); assertTrue(ui.tasks.isEmpty());
+    assertEquals("user", model.getUser().getId());
+  }
+  @Test public void acceptedRefreshUsesSeparateBackgroundBoundaryUntilUiResultsFinish() {
+    LoginViewModel model = new LoginViewModel(); model.setUser(new User("user", "email"));
+    Tasks worker = new Tasks(), ui = new Tasks(); final int[] refreshes = {0};
+    CloudController controller = new CloudController(input -> fail(), new LoadStub() {
+      @Override public void list(String user) { fail("Explicit refresh must reset through its own boundary"); }
+      @Override public void refresh(String user) { assertEquals("user", user); refreshes[0]++; }
+    }, model, worker, ui);
+    controller.refresh(() -> true); assertTrue(model.isBusy()); assertEquals(0, refreshes[0]);
+    controller.refresh(() -> { fail("No duplicate prompt"); return true; });
+    assertEquals(1, worker.tasks.size()); worker.drain();
+    assertTrue(model.isBusy()); assertEquals(1, refreshes[0]);
+    ui.drain(); assertFalse(model.isBusy()); assertEquals("user", model.getUser().getId());
+  }
   private static class Tasks implements Executor {
     final Queue<Runnable> tasks = new ArrayDeque<>();
     public void execute(Runnable task) { tasks.add(task); }
@@ -122,6 +152,7 @@ public class CloudControllerTest {
   }
   private static class LoadStub implements LoadStudySetsInputBoundary {
     public void list(String user) { }
+    public void refresh(String user) { }
     public void open(String user, String set) { }
   }
   private static class Auth implements LoginDataAccessInterface {

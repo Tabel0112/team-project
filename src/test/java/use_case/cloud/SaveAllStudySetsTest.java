@@ -90,7 +90,7 @@ public class SaveAllStudySetsTest {
     assertFalse(output.result.stillDirty);
   }
 
-  @Test public void draftInPresentationIndexIsLocalOnlyAndRefreshRestoresUnopenedSavedSet() throws Exception {
+  @Test public void listKeepsQueuedDeletionsWhileExplicitRefreshDiscardsThemAndPresentationOnlyDrafts() throws Exception {
     local.mergeSummaries(user, List.of(new SetSummary("remote", "Remote")));
     draft("draft", "Local");
     // Olivia's presentation reorder can place drafts in this index. It is not
@@ -106,7 +106,11 @@ public class SaveAllStudySetsTest {
     local.delete(user, "remote"); assertEquals(List.of("remote"), local.pendingDeletions(user));
     assertTrue(local.hasUnsaved(user)); assertFalse(local.contains(user, "remote"));
     assertTrue(local.summaries(user).isEmpty());
-    local.mergeSummaries(user, List.of(new SetSummary("remote", "Remote")));
+    gateway.listed = List.of(new SetSummary("remote", "Remote"));
+    Loads out = new Loads(); LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
+    load.list(user);
+    assertEquals(List.of("remote"), local.pendingDeletions(user)); assertTrue(out.listed.isEmpty());
+    load.refresh(user);
     assertEquals("remote", local.summaries(user).get(0).id);
     assertTrue(local.pendingDeletions(user).isEmpty()); assertFalse(local.hasUnsaved(user));
     assertNull(local.local(user, "remote")); assertFalse(local.contains(user, "draft"));
@@ -114,7 +118,7 @@ public class SaveAllStudySetsTest {
     local.clear(); assertFalse(local.hasUnsaved(user)); assertTrue(local.pendingDeletions(user).isEmpty());
   }
 
-  @Test public void successfulRefreshRestoresExactIdsAndKeepsOtherAccountsDraftsAndEdits() throws Exception {
+  @Test public void successfulRefreshDiscardsAllCurrentAccountWorkAndKeepsOtherAccounts() throws Exception {
     saved("restore", 3);
     local.getStudySetById("restore").getCardsList().addCard(new Flashcard("discarded", "edit"));
     local.delete(user, "restore");
@@ -126,40 +130,62 @@ public class SaveAllStudySetsTest {
     StudySet edited = local.getStudySetById("edited");
     edited.getCardsList().addCard(new Flashcard("keep", "edit"));
     SaveRequest pendingEdit = local.pendingOrCapture(user, "edited");
-    StudySet draft = draft("draft", "Keep draft");
+    saved("clean", 4);
+    draft("draft", "Discard draft");
     draft("discarded", "Discard draft"); local.delete(user, "discarded");
     local.install("account-b", new SetSnapshot("restore", "Other account", 1, List.of()));
     local.delete("account-b", "restore");
+    local.save("account-b", new StudySet("other", "Other account draft"));
+    SaveRequest otherPending = local.pendingOrCapture("account-b", "other");
+    local.install("account-b", new SetSnapshot("other-clean", "Other saved", 7, List.of()));
+    local.save("account-b", new StudySet("other-first", "Other first save"));
+    SaveRequest otherCreation = local.pendingOrCapture("account-b", "other-first");
+    local.delete("account-b", "other-first");
     gateway.listed = List.of(new SetSummary("restore", "Saved version"),
         new SetSummary("confirmed", "Saved first create"), new SetSummary("different-id", "Same name"));
     Loads out = new Loads(); LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
-    load.list(user);
-    assertNull(out.error); assertEquals(List.of("absent"), local.pendingDeletions(user));
-    assertEquals(List.of("restore"), local.pendingDeletions("account-b"));
+    load.refresh(user);
+    assertNull(out.error); assertTrue(local.pendingDeletions(user).isEmpty());
+    assertEquals(List.of("restore", "other-first"), local.pendingDeletions("account-b"));
+    assertSame(otherCreation, local.pendingCreationForDeletion("account-b", "other-first"));
+    assertEquals(7, local.local("account-b", "other-clean").revision);
+    assertFalse(local.isDirty("account-b", "other-clean"));
     assertNull(local.pendingCreationForDeletion(user, "confirmed"));
-    assertSame(absent, local.pendingCreationForDeletion(user, "absent"));
-    assertSame(edited, local.getStudySetById("edited")); assertSame(pendingEdit, local.pendingOrCapture(user, "edited"));
-    assertSame(draft, local.getStudySetById("draft")); assertNull(local.local(user, "discarded"));
+    assertNull(local.pendingCreationForDeletion(user, "absent"));
+    assertNull(local.local(user, "edited")); assertNull(local.local(user, "clean"));
+    assertNull(local.local(user, "draft")); assertNull(local.local(user, "discarded"));
+    assertFalse(local.hasUnsaved(user)); assertSame(otherPending, local.pendingOrCapture("account-b", "other"));
+    assertEquals(gateway.listed, out.refreshed);
     assertNull(local.local(user, "restore"));
     load.open(user, "restore");
     assertEquals("Saved version", out.opened.name); assertEquals(9, out.opened.revision);
     assertTrue(out.opened.cards.isEmpty()); assertFalse(local.isDirty(user, "restore"));
     save.execute(user);
-    assertFalse(gateway.calls.contains("delete:restore")); assertFalse(gateway.calls.contains("delete:confirmed"));
-    assertFalse(gateway.calls.contains("save:confirmed"));
+    assertTrue(gateway.calls.isEmpty());
+    local.acknowledge(pendingEdit, 99); local.acknowledge(absent, 99);
+    draft("edited", "New draft reusing its ID");
+    SaveRequest replacement = local.pendingOrCapture(user, "edited");
+    assertEquals(0, replacement.expectedRevision); assertNotEquals(pendingEdit.operationId, replacement.operationId);
   }
 
   @Test public void failedRefreshKeepsQueuedDeletionsAndUnresolvedCreateReceipts() throws Exception {
     saved("saved", 1); local.delete(user, "saved");
     draft("first", "First"); SaveRequest first = local.pendingOrCapture(user, "first");
     local.delete(user, "first");
+    saved("clean", 4); saved("dirty", 2);
+    StudySet dirty = local.getStudySetById("dirty"); dirty.getCardsList().addCard(new Flashcard("keep", "edit"));
+    SaveRequest pendingSave = local.pendingOrCapture(user, "dirty"); StudySet draft = draft("draft", "Keep draft");
+    List<SetSummary> prior = local.summaries(user);
     gateway.listed = List.of(new SetSummary("saved", "Saved"), new SetSummary("first", "First"));
     gateway.failedList = true;
-    Loads out = new Loads(); new LoadStudySetsInteractor(local, gateway, out).list(user);
+    Loads out = new Loads(); new LoadStudySetsInteractor(local, gateway, out).refresh(user);
     assertEquals("offline", out.error); assertNull(out.listed);
     assertEquals(List.of("saved", "first"), local.pendingDeletions(user));
     assertSame(first, local.pendingCreationForDeletion(user, "first"));
-    assertTrue(local.summaries(user).isEmpty()); assertTrue(local.hasUnsaved(user));
+    assertNull(out.refreshed); assertSame(dirty, local.getStudySetById("dirty"));
+    assertSame(draft, local.getStudySetById("draft")); assertEquals(4, local.local(user, "clean").revision);
+    assertSame(pendingSave, local.pendingOrCapture(user, "dirty"));
+    assertEquals(prior.size(), local.summaries(user).size()); assertTrue(local.hasUnsaved(user));
   }
 
   @Test public void ambiguousFirstCreateResolvesExactReceiptOnceBeforeDeletingAndNeverResurrectsOnRetry() throws Exception {
@@ -219,8 +245,9 @@ public class SaveAllStudySetsTest {
     }
   }
   private static final class Loads implements LoadStudySetsOutputBoundary {
-    List<SetSummary> listed; SetSnapshot opened; String error;
+    List<SetSummary> listed; List<SetSummary> refreshed; SetSnapshot opened; String error;
     public void listed(List<SetSummary> sets) { listed = sets; }
+    public void refreshed(List<SetSummary> sets) { refreshed = sets; }
     public void opened(SetSnapshot set) { opened = set; }
     public void failed(String message) { error = message; }
   }
