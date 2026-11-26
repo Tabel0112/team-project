@@ -50,6 +50,10 @@ import interface_adapter.view_flashcards.ViewFlashcardsController;
 import interface_adapter.view_flashcards.ViewFlashcardsPresenter;
 import interface_adapter.view_flashcards.ViewFlashcardsState;
 import interface_adapter.view_flashcards.ViewFlashcardsViewModel;
+import interface_adapter.edit_study_set.EditStudySetController;
+import interface_adapter.edit_study_set.EditStudySetPresenter;
+import interface_adapter.edit_study_set.EditStudySetViewModel;
+import use_case.edit_study_set.EditStudySetInteractor;
 import use_case.add_flashcard.AddFlashcardInteractor;
 import use_case.create_study_set.CreateStudySetInteractor;
 import use_case.delete_flashcard.DeleteFlashcardInteractor;
@@ -60,6 +64,7 @@ import use_case.upload_notes.UploadNotesInteractor;
 import view.AddFlashcardView;
 import view.CreateStudySetView;
 import view.EditFlashcardView;
+import view.EditStudySetView;
 import view.PracticeStudySetView;
 import view.ReviewStudySetsView;
 import view.StudySetView;
@@ -100,6 +105,8 @@ public class AppBuilder {
   private long sessionGeneration;
   private CreateStudySetInteractor createStudySet;
   private CreateStudySetViewModel createStudySetViewModel;
+  private EditStudySetViewModel editStudySetViewModel;
+  private EditStudySetView editStudySetView;
   private StudySetViewModel studySetViewModel;
   private CreateStudySetView createStudySetView;
   private StudySetView studySetView;
@@ -467,6 +474,9 @@ public class AppBuilder {
     if (applicationFrame != null) {
       for (java.awt.Window owned : applicationFrame.getOwnedWindows()) { owned.dispose(); }
     }
+    if (editStudySetViewModel != null) {
+      editStudySetViewModel.getState().select("", "");
+    }
     replaceUploadPanel();
     createStudySetViewModel.getState().setStudySets(java.util.List.of());
     createStudySetViewModel.getState().setCreatedStudySetId(null);
@@ -534,6 +544,66 @@ public class AppBuilder {
     List<Runnable> results = new ArrayList<>(deferredGenerated);
     deferredGenerated.clear();
     for (Runnable result : results) { result.run(); }
+  }
+
+  /**
+   * Starts editing a study set that the user chose in the panel: selects it in the edit
+   * state and switches to the edit study set view.
+   *
+   * @param item the study set whose Edit button was clicked
+   */
+  private void editStudySet(CreateStudySetState.Item item) {
+    editStudySetViewModel.getState().select(item.getId(), item.getName());
+    editStudySetViewModel.firePropertyChanged();
+    viewManagerModel.setActiveView(EditStudySetView.VIEW_NAME);
+  }
+
+  /**
+   * Creates the edit study set view and its view model, and makes the Edit buttons in the
+   * study set panel open it. After a successful edit, or on Cancel, it returns to the create
+   * study set view, which shows the list. Requires {@link #addCreateStudySetView()}.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addEditStudySetView() {
+    editStudySetViewModel = new EditStudySetViewModel();
+    editStudySetView = new EditStudySetView(
+        editStudySetViewModel,
+        this::currentUserId,
+        name -> JOptionPane.showConfirmDialog(cardPanel,
+            "Delete \"" + name + "\"? This cannot be undone.",
+            "Delete study set", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION,
+        () -> viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME),
+        () -> viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME));
+    cardPanel.add(editStudySetView, EditStudySetView.VIEW_NAME);
+    createStudySetView.setEditHandler(this::editStudySet);
+    return this;
+  }
+
+  /**
+   * Creates the Edit Study Set interactor, presenter and controller, and gives the
+   * controller to the view. Requires {@link #addCreateStudySetView()},
+   * {@link #addStudySetView()} and {@link #addEditStudySetView()} to have been called.
+   *
+   * @return this builder, for chaining
+   */
+  public AppBuilder addEditStudySetUseCase() {
+    final EditStudySetPresenter presenter = new EditStudySetPresenter(
+        editStudySetViewModel, createStudySetViewModel, studySetViewModel);
+    final EditStudySetInteractor interactor =
+        new EditStudySetInteractor(studySetDao, presenter);
+    final EditStudySetController controller = new EditStudySetController(interactor);
+    editStudySetView.setController(controller);
+    createStudySetView.setMoveHandler((item, delta) -> {
+      for (int step = 0; step < Math.abs(delta); step++) {
+        if (delta < 0) {
+          controller.moveUp(currentUserId(), item.getId());
+        } else {
+          controller.moveDown(currentUserId(), item.getId());
+        }
+      }
+    });
+    return this;
   }
 
 }
