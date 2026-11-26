@@ -1,8 +1,9 @@
 package use_case.load_study_sets;
 
+import java.util.List;
 import use_case.cloud.*;
 
-/** Loads on demand and never replaces an existing local working copy. */
+/** Lists without discarding work; explicit refresh resets it only after a successful cloud list. */
 public final class LoadStudySetsInteractor implements LoadStudySetsInputBoundary {
   private final WorkingStudySets local;
   private final LoadStudySetsDataAccessInterface cloud;
@@ -23,6 +24,14 @@ public final class LoadStudySetsInteractor implements LoadStudySetsInputBoundary
       requireUser(userId);
       if (!local.contains(userId, setId)) { local.install(userId, cloud.load(userId, setId)); }
       output.opened(local.local(userId, setId));
+    } catch (CloudException exception) { output.failed(exception.getMessage()); }
+  }
+  @Override public void refresh(String userId) {
+    try {
+      requireUser(userId);
+      List<SetSummary> summaries = cloud.list(userId);
+      local.resetToSummaries(userId, summaries);
+      output.refreshed(summaries);
     } catch (CloudException exception) { output.failed(exception.getMessage()); }
   }
   private void requireUser(String userId) throws CloudException {

@@ -188,22 +188,23 @@ The Flashcards application turns course materials into practice quizzes and flas
 
 **Preconditions:**
 - The user is logged in (see Use Case 5).
-- The user has an open study set with unsaved changes.
+- The user has local study changes to save or wants to open a saved set.
 
-**Trigger:** The user selects "Save open set" or opens a saved study set from the list.
+**Trigger:** The user selects "Save All", opens a saved study set, or selects "Refresh".
 
 **Main success scenario:**
-1. The user selects "Save open set". Changes stay local until this step.
-2. The system saves the set's name, flashcard changes, and card order to the user's account. Saving changes to an existing set updates the same set.
-3. The system confirms the save.
+1. The user selects "Save All". Changes stay local until this step.
+2. The system submits queued study-set deletions first, then saves every new or changed set's name, flashcards, and card order to the user's account. Each set saves atomically and keeps its identity.
+3. The system reports how many sets were saved and deleted.
 4. In a later session, the user logs in and the system lists their saved study sets.
 5. The user selects the saved study set.
 6. The system opens it with its saved name, questions, answers, and card order.
 
 **Extensions:**
 - 1a. The user only wants to open a previously saved set: the user selects it from the list (continue at step 6).
-- 2a. The save fails: the system shows an error, keeps the unsaved changes locally, and lets the user retry (return to step 1).
-- 4a. The list fails to load: the system shows an error and lets the user select "Refresh set list" to retry.
+- 2a. An operation fails: the system continues with independent changes, reports partial results, and keeps failed changes or deletions for retry through "Save All" (return to step 1). The batch is not a transaction across sets.
+- 2b. A saved study set is deleted locally: it disappears and stays queued until "Save All" confirms deletion. A draft never submitted for saving is removed locally.
+- 4a. The user selects "Refresh": the system asks "Discard all unsaved changes and reload from your account?" Cancel keeps the current work and screen without making a request. On confirmation, a successful reload discards all local edits, new drafts, pending saves, and queued deletions, then returns to the saved-set list. Sets load fresh when opened. A failed reload keeps local work and the current screen intact.
 - 6a. A local working copy already exists: the system opens that copy with any unsaved changes intact.
 - 6b. The study set fails to load: the system shows an error, keeps existing local drafts, and lets the user try again (return to step 5).
 
@@ -326,15 +327,22 @@ classDiagram
     CloudPanel --> CloudController
     CloudController --> SaveStudySetInputBoundary
     SaveStudySetInputBoundary <|.. SaveStudySetInteractor
+    CloudController --> SaveAllStudySetsInputBoundary
+    SaveAllStudySetsInputBoundary <|.. SaveAllStudySetsInteractor
     CloudController --> LoadStudySetsInputBoundary
     LoadStudySetsInputBoundary <|.. LoadStudySetsInteractor
     SaveStudySetInteractor --> SaveStudySetDataAccessInterface
     LoadStudySetsInteractor --> LoadStudySetsDataAccessInterface
     SaveStudySetDataAccessInterface <|.. SupabaseGateway
+    SaveAllStudySetsInteractor --> SaveAllStudySetsDataAccessInterface
+    SaveStudySetDataAccessInterface <|-- SaveAllStudySetsDataAccessInterface
+    SaveAllStudySetsDataAccessInterface <|.. SupabaseGateway
     LoadStudySetsDataAccessInterface <|.. SupabaseGateway
     SaveStudySetInteractor --> SaveStudySetOutputBoundary
     LoadStudySetsInteractor --> LoadStudySetsOutputBoundary
     SaveStudySetOutputBoundary <|.. CloudPresenter
+    SaveAllStudySetsInteractor --> SaveAllStudySetsOutputBoundary
+    SaveAllStudySetsOutputBoundary <|.. CloudPresenter
     LoadStudySetsOutputBoundary <|.. CloudPresenter
 ```
 
@@ -345,24 +353,33 @@ sequenceDiagram
     actor Student
     participant UI as Swing UI
     participant Controller as CloudController
-    participant Save as SaveStudySetInteractor
+    participant Save as SaveAllStudySetsInteractor
     participant Store as WorkingStudySets
     participant Cloud as SupabaseGateway
     participant Presenter as CloudPresenter
-    Student->>UI: Click Save open set
-    UI->>Controller: save(setId)
-    Controller->>Save: execute(input)
-    Save->>Store: Capture or reuse pending changes
-    Save->>Cloud: Commit pending changes
-    alt Save confirmed
-        Cloud-->>Save: Saved revision
-        Save->>Store: Acknowledge the confirmed snapshot
-        Save->>Presenter: saved(output)
-    else Save failed
-        Cloud-->>Save: Cloud error
-        Save->>Presenter: failed(message)
+    Student->>UI: Click Save All
+    UI->>Controller: saveAll()
+    Controller->>Save: execute(userId)
+    loop Queued deletions first
+        Save->>Cloud: Resolve any pending first-save receipt, then delete exact set ID
+        alt Deletion confirmed
+            Save->>Store: Clear confirmed deletion
+        else Operation failed
+            Save->>Store: Keep failed deletion for retry
+        end
     end
-    Presenter-->>UI: Update study set status
+    loop New or dirty study sets
+        Save->>Store: Capture or reuse pending changes
+        Save->>Cloud: Commit one set atomically
+        alt Save confirmed
+            Cloud-->>Save: Saved revision
+            Save->>Store: Acknowledge the confirmed snapshot
+        else Save failed
+            Save->>Store: Keep pending save for retry
+        end
+    end
+    Save->>Presenter: savedAll(batch outcome)
+    Presenter-->>UI: Show counts and any partial failure
 ```
 
 ---
@@ -387,7 +404,7 @@ SUPABASE_ANON_KEY=<publishable-key-or-legacy-anon-key>
 
 ### Login and manual Save
 
-Log in with a confirmed account, or sign up and confirm your email first. Changes stay local until you click **Save open set**. Saved sets appear in your list when you log in again. If Save fails, you can retry with your changes intact. The app asks for confirmation before discarding unsaved study changes when you log out or close it.
+Log in with a confirmed account, or sign up and confirm your email first. Changes stay local until you click **Save All**. It submits queued set deletions first, then saves all new and changed sets. **Refresh** asks before discarding all unsaved work and reloading the signed-in account's saved-set list. It keeps you signed in, and sets load fresh when opened. Cancel or a failed reload preserves your work. If some Save All operations fail, successful operations stay saved and failed work remains available for retry. The app also asks before discarding unsaved study changes when you log out or close it.
 
 ### Validation
 

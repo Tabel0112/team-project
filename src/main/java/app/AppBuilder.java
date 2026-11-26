@@ -11,6 +11,7 @@ import view.LoginPanel;
 import view.CloudPanel;
 import interface_adapter.cloud.CloudController;
 import interface_adapter.cloud.CloudPresenter;
+import use_case.save_study_set.SaveAllStudySetsInteractor;
 import use_case.save_study_set.SaveStudySetInteractor;
 import use_case.load_study_sets.LoadStudySetsInteractor;
 import entity.Flashcard;
@@ -408,18 +409,21 @@ public class AppBuilder {
       Thread thread = new Thread(task, "authentication-worker"); thread.setDaemon(true); return thread;
     });
     final CloudPresenter cloudPresenter = new CloudPresenter(loginModel, createStudySetViewModel,
-        studySetViewModel, viewManagerModel, SwingUtilities::invokeLater);
+        studySetViewModel, viewManagerModel, SwingUtilities::invokeLater, this::resetAfterRefresh);
     cloudController = new CloudController(new SaveStudySetInteractor(studySetDao, gateway, cloudPresenter),
+        new SaveAllStudySetsInteractor(studySetDao, gateway, cloudPresenter),
         new LoadStudySetsInteractor(studySetDao, gateway, cloudPresenter), loginModel,
         loginWorker, SwingUtilities::invokeLater);
     loginController = new LoginController(new LoginInteractor(gateway, presenter), gateway,
-        loginModel, loginWorker, SwingUtilities::invokeLater, studySetDao::clear, cloudController::refresh);
+        loginModel, loginWorker, SwingUtilities::invokeLater, studySetDao::clear, cloudController::list);
     JTabbedPane pages = buildPages(new UploadNotesInteractor(new PdfBoxTextReader()));
     JPanel root = new JPanel(new BorderLayout());
     JPanel account = new JPanel(new BorderLayout());
     account.add(new LoginPanel(loginModel, loginController, () -> logout(frame)), BorderLayout.NORTH);
     account.add(new CloudPanel(loginModel, cloudController,
-        () -> studySetViewModel.getState().getStudySetId()), BorderLayout.SOUTH);
+        () -> JOptionPane.showConfirmDialog(frame,
+            "Discard all unsaved changes and reload from your account?", "Refresh study sets",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION), BorderLayout.SOUTH);
     root.add(account, BorderLayout.NORTH);
     root.add(pages, BorderLayout.CENTER);
     setTreeEnabled(pages, false);
@@ -467,7 +471,12 @@ public class AppBuilder {
     }
   }
 
-  /** Clears both visible fields and cached account data after a confirmed logout/close. */
+  private void resetAfterRefresh() {
+    clearSessionViews();
+    pages.setSelectedComponent(cardPanel);
+  }
+
+  /** Clears visible work and rejects old asynchronous results after logout or successful refresh. */
   private void clearSessionViews() {
     sessionGeneration++;
     deferredGenerated.clear();
@@ -476,6 +485,7 @@ public class AppBuilder {
     }
     if (editStudySetViewModel != null) {
       editStudySetViewModel.getState().select("", "");
+      editStudySetViewModel.firePropertyChanged();
     }
     replaceUploadPanel();
     createStudySetViewModel.getState().setStudySets(java.util.List.of());
@@ -571,7 +581,8 @@ public class AppBuilder {
         editStudySetViewModel,
         this::currentUserId,
         name -> JOptionPane.showConfirmDialog(cardPanel,
-            "Delete \"" + name + "\"? This cannot be undone.",
+            "Remove \"" + name + "\"? Save All applies the deletion if this set is already saved."
+                + "\nRefresh discards all unsaved changes and reloads what is saved in your account.",
             "Delete study set", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION,
         () -> viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME),
         () -> viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME));
