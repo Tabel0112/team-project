@@ -3,6 +3,7 @@ package data_access;
 import entity.StudySet;
 import use_case.add_flashcard.AddFlashcardDataAccessInterface;
 import use_case.create_study_set.CreateStudySetDataAccessInterface;
+import use_case.edit_study_set.EditStudySetDataAccessInterface;
 import use_case.delete_flashcard.DeleteFlashcardDataAccessInterface;
 import use_case.edit_flashcard.EditFlashcardDataAccessInterface;
 import use_case.practice_study_set.PracticeStudySetDataAccessInterface;
@@ -19,7 +20,7 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
     AddFlashcardDataAccessInterface, ViewFlashcardsDataAccessInterface,
     EditFlashcardDataAccessInterface, DeleteFlashcardDataAccessInterface,
     PracticeStudySetDataAccessInterface, ReorderFlashcardsDataAccessInterface,
-    WorkingStudySets {
+    EditStudySetDataAccessInterface, WorkingStudySets {
   private final Map<String, Map<String, StudySet>> sets = new LinkedHashMap<>();
   private final Map<String, Map<String, SetSummary>> indexes = new LinkedHashMap<>();
   private final Map<String, SetSnapshot> baselines = new LinkedHashMap<>();
@@ -108,4 +109,40 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
   @Override public synchronized void clear() {
     sets.clear(); indexes.clear(); baselines.clear(); pending.clear();
   }
+  @Override public synchronized void delete(String userId, String studySetId) {
+    Map<String, StudySet> owned = sets.get(userId);
+    if (owned != null) { owned.remove(studySetId); }
+    Map<String, SetSummary> index = indexes.get(userId);
+    if (index != null) { index.remove(studySetId); }
+    baselines.remove(key(userId, studySetId));
+    pending.remove(key(userId, studySetId));
+  }
+  @Override public synchronized void rename(String userId, String studySetId, String newName) {
+    Map<String, StudySet> owned = sets.get(userId);
+    StudySet loaded = owned == null ? null : owned.get(studySetId);
+    if (loaded != null) {
+      // Same key, so the set keeps its position in the map.
+      owned.put(studySetId, new StudySet(loaded.getId(), newName, loaded.getCardsList()));
+    }
+    Map<String, SetSummary> index = indexes.get(userId);
+    if (index != null && index.containsKey(studySetId)) {
+      index.put(studySetId, new SetSummary(studySetId, newName));
+    }
+  }
+  @Override public synchronized void move(String userId, String studySetId, int newIndex) {
+    List<SetSummary> order = new ArrayList<>(summaries(userId));
+    int from = -1;
+    for (int i = 0; i < order.size(); i++) {
+      if (order.get(i).id.equals(studySetId)) { from = i; break; }
+    }
+    if (from < 0) { return; }
+    SetSummary moved = order.remove(from);
+    order.add(Math.max(0, Math.min(newIndex, order.size())), moved);
+    // summaries() lists the index first, so writing the new order there fixes the order
+    // for every set, loaded or not.
+    Map<String, SetSummary> replacement = new LinkedHashMap<>();
+    for (SetSummary summary : order) { replacement.put(summary.id, summary); }
+    indexes.put(userId, replacement);
+  }
 }
+
