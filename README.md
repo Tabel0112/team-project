@@ -254,15 +254,16 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Trigger:** The user selects "Edit" on a study set.
 
 **Main success scenario:**
-1. The user selects a study set and presses "Edit".
-2. The system displays the available editing options: delete the study set, edit its name, or move its position up or down in the list.
-3. The user selects an editing option.
-4. The system performs the selected action.
-5. The system displays the updated list of study sets.
+1. The user views their list of study sets.
+2. The user can choose to drag a study set up or down to change its position in the list.
+3. Alternatively, the user selects a study set and presses "Edit".
+4. The Edit menu displays the available editing options: delete the study set or edit its name.
+5. The user selects an editing option.
+6. The system performs the selected action.
+7. The system displays the updated list of study sets.
 
 **Extensions:**
-- 2a. The user chooses to delete the study set: the system asks the user to confirm the deletion.
-- 2b. The user chooses to move the set up or down: the system will not allow the user to move the set down if it is already at the bottom, or move it up if it already at the top.
+- 4a. The user chooses to delete the study set: the system asks the user to confirm the deletion.
 - 4a. The user chooses to edit the name: the system will reject the new name if the name is invalid.
 
 **Success outcome:** The study set is deleted, renamed or moved, and the updated list is shown
