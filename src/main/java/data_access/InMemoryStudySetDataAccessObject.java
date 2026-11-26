@@ -12,8 +12,10 @@ import use_case.view_flashcards.ViewFlashcardsDataAccessInterface;
 import use_case.cloud.*;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Shared local working repository. Its legacy save method registers a draft, never a cloud write. */
 public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAccessInterface,
@@ -25,6 +27,11 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
   private final Map<String, Map<String, SetSummary>> indexes = new LinkedHashMap<>();
   private final Map<String, SetSnapshot> baselines = new LinkedHashMap<>();
   private final Map<String, SaveRequest> pending = new LinkedHashMap<>();
+  // Presentation indexes may contain drafts after local reorder. Only cloud list
+  // responses establish that an unopened set may need a remote deletion.
+  private final Map<String, Set<String>> cloudListedIds = new LinkedHashMap<>();
+  private final Map<String, Set<String>> deletions = new LinkedHashMap<>();
+  private final Map<String, SaveRequest> deletionCreates = new LinkedHashMap<>();
 
   /** Whether any loaded/local sets exist, retained for the login session boundary. */
   public synchronized boolean hasStudySets() {
@@ -38,7 +45,48 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
   }
   @Override public synchronized void save(String userId, StudySet set) {
     if (userId == null || userId.isBlank()) { throw new IllegalArgumentException("Login required."); }
+    if (queuedForDeletion(userId, set.getId())) { throw new IllegalStateException("This study set is queued for deletion."); }
     sets.computeIfAbsent(userId, ignored -> new LinkedHashMap<>()).put(set.getId(), set);
+  }
+  /** Removes local state immediately and defers any remote deletion until Save All. */
+  @Override public synchronized void delete(String userId, String studySetId) {
+    if (userId == null || userId.isBlank()) { throw new IllegalArgumentException("Login required."); }
+    String key = key(userId, studySetId);
+    if (baselines.containsKey(key) || pending.containsKey(key)
+        || cloudListedIds.getOrDefault(userId, Set.of()).contains(studySetId)) {
+      deletions.computeIfAbsent(userId, ignored -> new LinkedHashSet<>()).add(studySetId);
+    }
+    SaveRequest request = pending.get(key);
+    if (request != null && request.expectedRevision == 0 && !baselines.containsKey(key)) {
+      // Its first transaction may still be in flight. Resolve this same receipt
+      // before deleting, so a late create cannot resurrect the removed set.
+      deletionCreates.put(key, request);
+    }
+    Map<String, StudySet> owned = sets.get(userId);
+    if (owned != null) { owned.remove(studySetId); }
+    Map<String, SetSummary> index = indexes.get(userId);
+    if (index != null) { index.remove(studySetId); }
+    baselines.remove(key); pending.remove(key);
+  }
+  private boolean queuedForDeletion(String userId, String studySetId) {
+    return deletions.getOrDefault(userId, Set.of()).contains(studySetId);
+  }
+  @Override public synchronized List<String> pendingDeletions(String userId) {
+    return List.copyOf(deletions.getOrDefault(userId, Set.of()));
+  }
+  @Override public synchronized SaveRequest pendingCreationForDeletion(String userId, String setId) {
+    return deletionCreates.get(key(userId, setId));
+  }
+  @Override public synchronized void acknowledgeCreationForDeletion(SaveRequest request) {
+    String key = key(request.userId, request.snapshot.id);
+    if (deletionCreates.get(key) == request) { deletionCreates.remove(key); }
+  }
+  @Override public synchronized void acknowledgeDeletion(String userId, String setId) {
+    Set<String> queued = deletions.get(userId);
+    if (queued == null || !queued.remove(setId)) { return; }
+    Set<String> listed = cloudListedIds.get(userId);
+    if (listed != null) { listed.remove(setId); }
+    deletionCreates.remove(key(userId, setId));
   }
   @Override public synchronized List<StudySet> getStudySets(String userId) {
     List<StudySet> result = new ArrayList<>();
@@ -69,9 +117,17 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
         || pending.containsKey(key(user, id)));
   }
   @Override public synchronized boolean hasUnsaved(String user) {
-    return sets.getOrDefault(user, Map.of()).keySet().stream().anyMatch(id -> isDirty(user, id));
+    return !pendingDeletions(user).isEmpty() || !dirtySetIds(user).isEmpty();
+  }
+  @Override public synchronized List<String> dirtySetIds(String user) {
+    List<String> dirty = new ArrayList<>();
+    for (String id : sets.getOrDefault(user, Map.of()).keySet()) {
+      if (!queuedForDeletion(user, id) && isDirty(user, id)) { dirty.add(id); }
+    }
+    return List.copyOf(dirty);
   }
   @Override public synchronized SaveRequest pendingOrCapture(String user, String id) throws CloudException {
+    if (queuedForDeletion(user, id)) { throw new CloudException("This study set is queued for deletion. Click Save All to finish."); }
     String key = key(user, id);
     if (pending.containsKey(key)) { return pending.get(key); }
     SetSnapshot snapshot = local(user, id);
@@ -90,13 +146,19 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
     pending.remove(key);
   }
   @Override public synchronized void install(String user, SetSnapshot snapshot) throws CloudException {
+    if (queuedForDeletion(user, snapshot.id)) { throw new CloudException("This study set is queued for deletion. Click Save All to finish."); }
     if (contains(user, snapshot.id)) { throw new CloudException("A local copy is already open; it was kept."); }
     save(user, snapshot.toEntity());
     baselines.put(key(user, snapshot.id), snapshot);
   }
   @Override public synchronized void mergeSummaries(String user, List<SetSummary> summaries) {
     Map<String, SetSummary> replacement = new LinkedHashMap<>();
-    for (SetSummary summary : summaries) { replacement.put(summary.id, summary); }
+    Set<String> listed = new LinkedHashSet<>();
+    for (SetSummary summary : summaries) {
+      listed.add(summary.id);
+      if (!queuedForDeletion(user, summary.id)) { replacement.put(summary.id, summary); }
+    }
+    cloudListedIds.put(user, listed);
     indexes.put(user, replacement);
   }
   @Override public synchronized List<SetSummary> summaries(String user) {
@@ -104,18 +166,12 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
     for (StudySet set : sets.getOrDefault(user, Map.of()).values()) {
       result.put(set.getId(), new SetSummary(set.getId(), set.getName()));
     }
+    result.keySet().removeIf(id -> queuedForDeletion(user, id));
     return List.copyOf(result.values());
   }
   @Override public synchronized void clear() {
     sets.clear(); indexes.clear(); baselines.clear(); pending.clear();
-  }
-  @Override public synchronized void delete(String userId, String studySetId) {
-    Map<String, StudySet> owned = sets.get(userId);
-    if (owned != null) { owned.remove(studySetId); }
-    Map<String, SetSummary> index = indexes.get(userId);
-    if (index != null) { index.remove(studySetId); }
-    baselines.remove(key(userId, studySetId));
-    pending.remove(key(userId, studySetId));
+    cloudListedIds.clear(); deletions.clear(); deletionCreates.clear();
   }
   @Override public synchronized void rename(String userId, String studySetId, String newName) {
     Map<String, StudySet> owned = sets.get(userId);

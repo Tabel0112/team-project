@@ -6,11 +6,20 @@ import entity.User;
 import interface_adapter.login.LoginController;
 import interface_adapter.login.LoginPresenter;
 import interface_adapter.login.LoginViewModel;
+import interface_adapter.ViewManagerModel;
+import interface_adapter.create_study_set.CreateStudySetViewModel;
+import interface_adapter.study_set.StudySetViewModel;
 import java.util.ArrayDeque;
 import java.util.Queue;
+import java.util.List;
 import java.util.concurrent.Executor;
+import javax.swing.JButton;
+import javax.swing.SwingUtilities;
 import org.junit.Test;
 import use_case.cloud.CloudException;
+import use_case.cloud.SetSummary;
+import use_case.save_study_set.SaveAllStudySetsOutputData;
+import view.CloudPanel;
 import use_case.load_study_sets.LoadStudySetsInputBoundary;
 import use_case.login.LoginDataAccessInterface;
 import use_case.login.LoginInteractor;
@@ -57,6 +66,54 @@ public class CloudControllerTest {
     controller.login("student@example.test", "example".toCharArray(), false);
     worker.drain(); ui.drain();
     assertEquals(1, lists[0]); assertEquals("Reauthentication failed; drafts kept", model.getMessage());
+  }
+  @Test public void saveAllButtonNeedsNoOpenSetAndBusyWorkerGuardsQueuedDeletionUntilExplicitLogout() throws Exception {
+    SwingUtilities.invokeAndWait(() -> {
+      LoginViewModel model = new LoginViewModel(); model.setUser(new User("user", "email"));
+      Tasks worker = new Tasks(), ui = new Tasks();
+      InMemoryStudySetDataAccessObject local = new InMemoryStudySetDataAccessObject();
+      local.mergeSummaries("user", List.of(new SetSummary("remote", "Remote")));
+      local.delete("user", "remote");
+      assertTrue(local.hasUnsaved("user")); assertTrue(local.summaries("user").isEmpty());
+      final int[] batches = {0};
+      CloudController controller = new CloudController(input -> fail("No single-set save"), user -> {
+        assertEquals("user", user); batches[0]++;
+      }, new LoadStub(), model, worker, ui);
+      LoginController login = new LoginController(input -> fail(), new Auth(), model, worker, ui, local::clear);
+      CloudPanel panel = new CloudPanel(model, controller);
+      JButton saveAll = null;
+      for (java.awt.Component child : panel.getComponents()) {
+        if (child instanceof JButton && "Save All".equals(((JButton) child).getText())) {
+          saveAll = (JButton) child;
+        }
+      }
+      assertNotNull(saveAll); saveAll.doClick(); assertFalse(saveAll.isEnabled());
+      controller.saveAll(); login.logout();
+      assertTrue(model.isBusy()); assertEquals(1, worker.tasks.size()); assertEquals(0, batches[0]);
+      assertTrue(local.hasUnsaved("user")); assertNotNull(model.getUser());
+      worker.drain(); assertTrue(model.isBusy()); ui.drain();
+      assertEquals(1, batches[0]); assertFalse(model.isBusy()); assertTrue(saveAll.isEnabled());
+      assertTrue(local.hasUnsaved("user"));
+      login.logout(); // AppBuilder calls this only after explicit discard confirmation.
+      assertNull(model.getUser()); assertFalse(local.hasUnsaved("user"));
+      assertTrue(local.pendingDeletions("user").isEmpty());
+    });
+  }
+  @Test public void batchPresenterReportsPartialCountsOnceOnUiWithoutNavigation() {
+    LoginViewModel model = new LoginViewModel(); Tasks ui = new Tasks();
+    StudySetViewModel set = new StudySetViewModel(); ViewManagerModel views = new ViewManagerModel();
+    views.setActiveView("list");
+    CloudPresenter presenter = new CloudPresenter(model, new CreateStudySetViewModel(), set, views, ui);
+    String previous = model.getMessage();
+    presenter.savedAll(new SaveAllStudySetsOutputData(2, 1, List.of("Delete: offline"), true));
+    assertEquals(previous, model.getMessage()); assertEquals(1, ui.tasks.size());
+    ui.drain();
+    assertTrue(model.getMessage().contains("Saved 2 study sets. Deleted 1 study set."));
+    assertTrue(model.getMessage().contains("1 operation failed"));
+    assertTrue(model.getMessage().contains("Pending work was kept"));
+    assertEquals(model.getMessage(), set.getState().getMessage()); assertEquals("list", views.getActiveView());
+    presenter.savedAll(new SaveAllStudySetsOutputData(0, 0, List.of(), false)); ui.drain();
+    assertEquals("No unsaved study changes.", model.getMessage());
   }
   private static class Tasks implements Executor {
     final Queue<Runnable> tasks = new ArrayDeque<>();

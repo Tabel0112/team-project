@@ -5,7 +5,7 @@ import entity.User;
 import use_case.cloud.*;
 import use_case.login.LoginDataAccessInterface;
 import use_case.load_study_sets.LoadStudySetsDataAccessInterface;
-import use_case.save_study_set.SaveStudySetDataAccessInterface;
+import use_case.save_study_set.SaveAllStudySetsDataAccessInterface;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -19,7 +19,7 @@ import java.util.UUID;
 
 /** Java 11 HTTP adapter. Public API key identifies the app; the access JWT identifies the user. */
 public final class SupabaseGateway implements LoginDataAccessInterface,
-    LoadStudySetsDataAccessInterface, SaveStudySetDataAccessInterface {
+    LoadStudySetsDataAccessInterface, SaveAllStudySetsDataAccessInterface {
   private final SupabaseConfig config;
   private final HttpClient http;
   private final Gson gson = new Gson();
@@ -100,6 +100,17 @@ public final class SupabaseGateway implements LoginDataAccessInterface,
       if (revision != request.expectedRevision + 1) { throw new IllegalArgumentException(); }
       return revision;
     } catch (RuntimeException exception) { throw malformed(); }
+  }
+  @Override public synchronized void delete(String userId, String setId) throws CloudException {
+    String id;
+    try {
+      id = UUID.fromString(setId).toString();
+      if (!id.equalsIgnoreCase(setId)) { throw new IllegalArgumentException(); }
+    } catch (RuntimeException exception) {
+      throw new CloudException("The study set ID is invalid. Its deletion was kept for review.");
+    }
+    // PostgREST DELETE is idempotent for an already absent row. RLS verifies ownership.
+    authorized(userId, "DELETE", "/rest/v1/uc5_study_sets?id=eq." + id, null);
   }
 
   private JsonElement authorized(String userId, String method, String path, JsonObject body)

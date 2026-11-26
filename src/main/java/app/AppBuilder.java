@@ -11,6 +11,7 @@ import view.LoginPanel;
 import view.CloudPanel;
 import interface_adapter.cloud.CloudController;
 import interface_adapter.cloud.CloudPresenter;
+import use_case.save_study_set.SaveAllStudySetsInteractor;
 import use_case.save_study_set.SaveStudySetInteractor;
 import use_case.load_study_sets.LoadStudySetsInteractor;
 import entity.Flashcard;
@@ -410,6 +411,7 @@ public class AppBuilder {
     final CloudPresenter cloudPresenter = new CloudPresenter(loginModel, createStudySetViewModel,
         studySetViewModel, viewManagerModel, SwingUtilities::invokeLater);
     cloudController = new CloudController(new SaveStudySetInteractor(studySetDao, gateway, cloudPresenter),
+        new SaveAllStudySetsInteractor(studySetDao, gateway, cloudPresenter),
         new LoadStudySetsInteractor(studySetDao, gateway, cloudPresenter), loginModel,
         loginWorker, SwingUtilities::invokeLater);
     loginController = new LoginController(new LoginInteractor(gateway, presenter), gateway,
@@ -418,8 +420,7 @@ public class AppBuilder {
     JPanel root = new JPanel(new BorderLayout());
     JPanel account = new JPanel(new BorderLayout());
     account.add(new LoginPanel(loginModel, loginController, () -> logout(frame)), BorderLayout.NORTH);
-    account.add(new CloudPanel(loginModel, cloudController,
-        () -> studySetViewModel.getState().getStudySetId()), BorderLayout.SOUTH);
+    account.add(new CloudPanel(loginModel, cloudController), BorderLayout.SOUTH);
     root.add(account, BorderLayout.NORTH);
     root.add(pages, BorderLayout.CENTER);
     setTreeEnabled(pages, false);
@@ -571,7 +572,7 @@ public class AppBuilder {
         editStudySetViewModel,
         this::currentUserId,
         name -> JOptionPane.showConfirmDialog(cardPanel,
-            "Delete \"" + name + "\"? This cannot be undone.",
+            "Remove \"" + name + "\"? Save All applies the deletion if this set is already saved.",
             "Delete study set", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION,
         () -> viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME),
         () -> viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME));

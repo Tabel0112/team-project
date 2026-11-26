@@ -21,15 +21,16 @@ public class SupabasePersistenceGatewayTest {
   @Before public void setup() throws Exception {
     server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     server.createContext("/", exchange -> {
-      calls.add(new Request(exchange.getRequestURI().toString(),
+      calls.add(new Request(exchange.getRequestMethod(), exchange.getRequestURI().toString(),
           exchange.getRequestHeaders().getFirst("apikey"), exchange.getRequestHeaders().getFirst("Authorization"),
           new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
       Reply reply = replies.poll();
       if (reply == null) { reply = new Reply(500, "{\"error\":\"Unexpected fixture call\"}"); }
       byte[] bytes = reply.body.getBytes(StandardCharsets.UTF_8);
       exchange.getResponseHeaders().set("Content-Type", "application/json");
-      exchange.sendResponseHeaders(reply.status, bytes.length);
-      exchange.getResponseBody().write(bytes); exchange.close();
+      exchange.sendResponseHeaders(reply.status, reply.status == 204 ? -1 : bytes.length);
+      if (reply.status != 204) { exchange.getResponseBody().write(bytes); }
+      exchange.close();
     });
     server.start();
     gateway = new SupabaseGateway(new SupabaseConfig("http://127.0.0.1:" + server.getAddress().getPort(), "sb_publishable_fixture"));
@@ -103,14 +104,43 @@ public class SupabasePersistenceGatewayTest {
     CloudException expired = assertThrows(CloudException.class, () -> gateway.list(user));
     assertTrue(expired.getMessage().contains("same account"));
   }
+  @Test public void exactUuidDeleteUsesAuthenticatedRequestAndIsIdempotentWhenAlreadyAbsent() throws Exception {
+    login(); reply(204, ""); gateway.delete(user, setId);
+    Request deletion = calls.get(1);
+    assertEquals("DELETE", deletion.method);
+    assertEquals("/rest/v1/uc5_study_sets?id=eq." + setId, deletion.path);
+    assertEquals("sb_publishable_fixture", deletion.key);
+    assertEquals("Bearer fixture-access", deletion.authorization); assertEquals("", deletion.body);
+    reply(204, ""); gateway.delete(user, setId);
+    assertEquals(deletion.path, calls.get(2).path); assertEquals("DELETE", calls.get(2).method);
+    int sent = calls.size();
+    assertThrows(CloudException.class, () -> gateway.delete(UUID.randomUUID().toString(), setId));
+    assertThrows(CloudException.class, () -> gateway.delete(user, "eq.anything&user_id=not.is.null"));
+    assertThrows(CloudException.class, () -> gateway.delete(user, "1-1-1-1-1"));
+    assertEquals(sent, calls.size());
+    gateway.forgetSession(); assertThrows(CloudException.class, () -> gateway.delete(user, setId));
+    assertEquals(sent, calls.size());
+  }
+  @Test public void deleteRetriesAuthorizationWithSameExactTargetAndRetainsSanitizedFailures() throws Exception {
+    login(); reply(401, "{}"); reply(200, session(user, "renewed", 3600)); reply(200, "[]");
+    gateway.delete(user, setId);
+    assertEquals("DELETE", calls.get(1).method); assertEquals("DELETE", calls.get(3).method);
+    assertEquals(calls.get(1).path, calls.get(3).path);
+    assertEquals("Bearer renewed", calls.get(3).authorization);
+    reply(503, "{\"message\":\"sensitive-fixture-value\"}");
+    CloudException failure = assertThrows(CloudException.class, () -> gateway.delete(user, setId));
+    assertFalse(failure.getMessage().contains("sensitive-fixture-value"));
+    reply(200, "[]"); gateway.delete(user, setId);
+    assertEquals(calls.get(4).path, calls.get(5).path);
+  }
   private static final class Reply {
     final int status; final String body;
     Reply(int status, String body) { this.status = status; this.body = body; }
   }
   private static final class Request {
-    final String path, key, authorization, body;
-    Request(String path, String key, String authorization, String body) {
-      this.path = path; this.key = key; this.authorization = authorization; this.body = body;
+    final String method, path, key, authorization, body;
+    Request(String method, String path, String key, String authorization, String body) {
+      this.method = method; this.path = path; this.key = key; this.authorization = authorization; this.body = body;
     }
   }
 }
