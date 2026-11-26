@@ -190,7 +190,7 @@ The Flashcards application turns course materials into practice quizzes and flas
 - The user is logged in (see Use Case 5).
 - The user has an open study set with unsaved changes.
 
-**Trigger:** The user selects "Save open set" or opens a saved study set from the list.
+**Trigger:** The user selects "Save open set", opens a saved study set from the list, or selects "Refresh".
 
 **Main success scenario:**
 1. The user selects "Save open set". Changes stay local until this step.
@@ -203,9 +203,10 @@ The Flashcards application turns course materials into practice quizzes and flas
 **Extensions:**
 - 1a. The user only wants to open a previously saved set: the user selects it from the list (continue at step 6).
 - 2a. The save fails: the system shows an error, keeps the unsaved changes locally, and lets the user retry (return to step 1).
-- 4a. The list fails to load: the system shows an error and lets the user select "Refresh set list" to retry.
+- 4a. The list fails to load: the system shows an error and lets the user select "Refresh" to retry.
 - 6a. A local working copy already exists: the system opens that copy with any unsaved changes intact.
 - 6b. The study set fails to load: the system shows an error, keeps existing local drafts, and lets the user try again (return to step 5).
+- 6c. "Refresh" updates the list and reloads the saved set displayed in the Study sets tab, asking before replacing unsaved changes. Cancelling or a load failure keeps local work. New drafts stay local, and other screens refresh only the list.
 
 **Success outcome:** The study set and its flashcards are stored in the cloud under the user's account and can be retrieved in later sessions.
 

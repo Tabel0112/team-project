@@ -58,4 +58,19 @@ public final class CloudPresenter implements LoadStudySetsOutputBoundary,
       cloud.message("Working locally. Click Save to commit changes to your account.");
     });
   }
+  @Override public void refreshed(SetSnapshot snapshot) {
+    ui.execute(() -> {
+      List<CreateStudySetState.Item> items = new ArrayList<>();
+      for (CreateStudySetState.Item item : list.getState().getStudySets()) {
+        items.add(snapshot.id.equals(item.getId())
+            ? new CreateStudySetState.Item(snapshot.id, snapshot.name, snapshot.cards.size()) : item);
+      }
+      list.getState().setStudySets(items); list.firePropertyChanged();
+      if (snapshot.id.equals(set.getState().getStudySetId())) {
+        set.getState().open(snapshot.id, snapshot.name, snapshot.cards.size());
+        set.firePropertyChanged();
+      }
+      cloud.message("Study set refreshed from your account.");
+    });
+  }
 }

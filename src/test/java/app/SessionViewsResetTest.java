@@ -6,6 +6,8 @@ import entity.User;
 import interface_adapter.create_study_set.CreateStudySetViewModel;
 import interface_adapter.edit_flashcard.EditFlashcardViewModel;
 import interface_adapter.login.LoginViewModel;
+import interface_adapter.ViewManagerModel;
+import interface_adapter.study_set.StudySetViewModel;
 import interface_adapter.view_flashcards.ViewFlashcardsViewModel;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -17,6 +19,10 @@ import use_case.upload_notes.UploadNotesInteractor;
 import view.UploadNotesPanel;
 import view.CreateStudySetView;
 import javax.swing.JTextField;
+import javax.swing.JTabbedPane;
+import view.StudySetView;
+import view.AddFlashcardView;
+import view.EditFlashcardView;
 import java.awt.Component;
 import static org.junit.Assert.*;
 
@@ -124,6 +130,27 @@ public class SessionViewsResetTest {
       } catch (ReflectiveOperationException | use_case.cloud.CloudException exception) {
         throw new AssertionError(exception);
       }
+    });
+  }
+  @Test public void refreshTargetsOnlySetDisplayedInStudySetsTab() throws Exception {
+    SwingUtilities.invokeAndWait(() -> {
+      try {
+        AppBuilder builder = new AppBuilder().addCreateStudySetView().addStudySetView()
+            .addAddFlashcardView().addViewFlashcardsView().addEditFlashcardView()
+            .addCreateStudySetUseCase().addViewFlashcardsUseCase();
+        JTabbedPane pages = builder.buildPages(new UploadNotesInteractor(path -> "fixture"));
+        field(builder, "studySetViewModel", StudySetViewModel.class).getState().open("saved", "Saved", 1);
+        ViewManagerModel views = field(builder, "viewManagerModel", ViewManagerModel.class);
+        Method displayed = AppBuilder.class.getDeclaredMethod("displayedStudySetId"); displayed.setAccessible(true);
+        assertNull(displayed.invoke(builder));
+        views.setActiveView(StudySetView.VIEW_NAME); assertEquals("saved", displayed.invoke(builder));
+        pages.setSelectedIndex(1); assertNull(displayed.invoke(builder));
+        pages.setSelectedIndex(2); assertNull(displayed.invoke(builder));
+        pages.setSelectedIndex(0); assertEquals("saved", displayed.invoke(builder));
+        views.setActiveView(AddFlashcardView.VIEW_NAME); assertNull(displayed.invoke(builder));
+        views.setActiveView(EditFlashcardView.VIEW_NAME); assertNull(displayed.invoke(builder));
+        views.setActiveView(CreateStudySetView.VIEW_NAME); assertNull(displayed.invoke(builder));
+      } catch (ReflectiveOperationException exception) { throw new AssertionError(exception); }
     });
   }
   private static <T> T field(Object target, String name, Class<T> type) throws ReflectiveOperationException {

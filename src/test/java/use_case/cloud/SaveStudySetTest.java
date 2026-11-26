@@ -124,6 +124,86 @@ public class SaveStudySetTest {
     assertEquals(2, local.pendingOrCapture(user, created[0]).upserts.size());
     assertTrue(local.hasUnsaved(user));
   }
+  @Test public void refreshReplacesSavedContentsAndBaselineWithFreshNameCardsAndOrder() throws Exception {
+    local.install(user, new SetSnapshot(id, "Old", 1, List.of()));
+    SetSnapshot fresh = new SetSnapshot(id, "Fresh", 4, List.of(
+        new SetSnapshot.Card("card-b", "second", "answer-b", 0),
+        new SetSnapshot.Card("card-a", "first", "answer-a", 1)));
+    RefreshGateway gateway = new RefreshGateway(fresh);
+    LoadOutput out = new LoadOutput();
+    LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
+    assertFalse(load.needsRefreshConfirmation(user, id));
+    load.refresh(user, id, false);
+    assertEquals(1, gateway.lists); assertEquals(1, gateway.loads);
+    assertSame(fresh, out.refreshed); assertNull(out.opened);
+    assertTrue(fresh.sameContents(local.local(user, id)));
+    assertEquals(4, local.local(user, id).revision); assertFalse(local.isDirty(user, id));
+    local.getStudySetById(id).getCardsList().addCard(new Flashcard("later", "edit"));
+    assertEquals(4, local.pendingOrCapture(user, id).expectedRevision);
+  }
+  @Test public void declinedRefreshKeepsDirtyCopyAndPendingSaveButStillLists() throws Exception {
+    local.install(user, new SetSnapshot(id, "Saved", 2, List.of()));
+    StudySet working = local.getStudySetById(id);
+    working.getCardsList().addCard(new Flashcard("local", "edit"));
+    SaveRequest pending = local.pendingOrCapture(user, id);
+    RefreshGateway gateway = new RefreshGateway(new SetSnapshot(id, "Fresh", 3, List.of()));
+    LoadOutput out = new LoadOutput();
+    LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
+    assertTrue(load.needsRefreshConfirmation(user, id));
+    load.refresh(user, id, false);
+    assertEquals(1, gateway.lists); assertEquals(0, gateway.loads); assertNull(out.refreshed);
+    assertSame(working, local.getStudySetById(id));
+    assertSame(pending, local.pendingOrCapture(user, id)); assertEquals(2, local.local(user, id).revision);
+  }
+  @Test public void acceptedRefreshClearsSupersededPendingSaveOnlyAfterSuccessfulLoad() throws Exception {
+    local.install(user, new SetSnapshot(id, "Saved", 2, List.of()));
+    StudySet working = local.getStudySetById(id);
+    working.getCardsList().addCard(new Flashcard("local", "edit"));
+    SaveRequest pending = local.pendingOrCapture(user, id);
+    SetSnapshot fresh = new SetSnapshot(id, "Fresh", 5, List.of());
+    RefreshGateway gateway = new RefreshGateway(fresh); gateway.fail = true;
+    LoadOutput out = new LoadOutput();
+    LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
+    load.refresh(user, id, true);
+    assertEquals("offline", out.error); assertSame(working, local.getStudySetById(id));
+    assertSame(pending, local.pendingOrCapture(user, id)); assertEquals(2, local.local(user, id).revision);
+    gateway.fail = false; load.refresh(user, id, true);
+    assertSame(fresh, out.refreshed); assertFalse(local.isDirty(user, id));
+    assertNull(local.pendingOrCapture(user, id));
+    local.acknowledge(pending, 3); assertEquals(5, local.local(user, id).revision);
+    local.getStudySetById(id).getCardsList().addCard(new Flashcard("new", "edit"));
+    SaveRequest next = local.pendingOrCapture(user, id);
+    assertNotEquals(pending.operationId, next.operationId); assertEquals(5, next.expectedRevision);
+  }
+  @Test public void refreshWithoutVisibleSavedSetKeepsDraftsAndNeverLoadsCards() throws Exception {
+    StudySet working = draft(); SaveRequest pending = local.pendingOrCapture(user, id);
+    RefreshGateway gateway = new RefreshGateway(new SetSnapshot(id, "Fresh", 1, List.of()));
+    LoadOutput out = new LoadOutput();
+    LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
+    assertFalse(load.needsRefreshConfirmation(user, id));
+    load.refresh(user, id, true); load.refresh(user, null, true);
+    load.refresh("other-user", id, true);
+    assertEquals(3, gateway.lists); assertEquals(0, gateway.loads);
+    assertSame(working, local.getStudySetById(id)); assertSame(pending, local.pendingOrCapture(user, id));
+    load.refresh(null, id, true); assertEquals(3, gateway.lists); assertEquals(0, gateway.loads);
+  }
+  @Test public void refreshListFailureReportsOnceAndKeepsCopyRevisionAndPendingSave() throws Exception {
+    local.install(user, new SetSnapshot(id, "Saved", 2, List.of()));
+    StudySet working = local.getStudySetById(id);
+    working.getCardsList().addCard(new Flashcard("local", "edit"));
+    SaveRequest pending = local.pendingOrCapture(user, id);
+    RefreshGateway gateway = new RefreshGateway(new SetSnapshot(id, "Fresh", 3, List.of()));
+    gateway.failList = true;
+    LoadOutput out = new LoadOutput();
+    LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
+    load.refresh(user, id, true);
+    assertEquals("offline", out.error); assertEquals(1, out.failures);
+    assertEquals(1, gateway.lists); assertEquals(0, gateway.loads); assertNull(out.refreshed);
+    assertSame(working, local.getStudySetById(id)); assertEquals(2, local.local(user, id).revision);
+    assertSame(pending, local.pendingOrCapture(user, id));
+    load.refresh(null, id, true);
+    assertEquals(2, out.failures); assertEquals(1, gateway.lists); assertEquals(0, gateway.loads);
+  }
   @Test public void teammateEditAndDeleteCommitStableIdsTombstonesAndShiftedOrder() throws Exception {
     StudySet set = draft();
     Flashcard first = new Flashcard("first", "answer1");
@@ -167,9 +247,21 @@ public class SaveStudySetTest {
     public void failed(String message) { error = message; }
   }
   private static class LoadOutput implements LoadStudySetsOutputBoundary {
-    String error; SetSnapshot opened;
+    String error; SetSnapshot opened; SetSnapshot refreshed; int failures;
     public void listed(List<SetSummary> sets) { }
     public void opened(SetSnapshot set) { opened = set; }
-    public void failed(String message) { error = message; }
+    public void refreshed(SetSnapshot set) { refreshed = set; }
+    public void failed(String message) { error = message; failures++; }
+  }
+  private static class RefreshGateway implements LoadStudySetsDataAccessInterface {
+    final SetSnapshot fresh; int lists; int loads; boolean fail; boolean failList;
+    RefreshGateway(SetSnapshot fresh) { this.fresh = fresh; }
+    public List<SetSummary> list(String userId) throws CloudException {
+      lists++; if (failList) { throw new CloudException("offline"); }
+      return List.of(new SetSummary(fresh.id, fresh.name));
+    }
+    public SetSnapshot load(String userId, String setId) throws CloudException {
+      loads++; if (fail) { throw new CloudException("offline"); } return fresh;
+    }
   }
 }

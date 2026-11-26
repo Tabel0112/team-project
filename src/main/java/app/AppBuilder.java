@@ -412,7 +412,10 @@ public class AppBuilder {
     JPanel account = new JPanel(new BorderLayout());
     account.add(new LoginPanel(loginModel, loginController, () -> logout(frame)), BorderLayout.NORTH);
     account.add(new CloudPanel(loginModel, cloudController,
-        () -> studySetViewModel.getState().getStudySetId()), BorderLayout.SOUTH);
+        () -> studySetViewModel.getState().getStudySetId(), this::displayedStudySetId,
+        () -> JOptionPane.showConfirmDialog(frame,
+            "Replace this study set's unsaved local changes with its saved version?",
+            "Refresh study set", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION), BorderLayout.SOUTH);
     root.add(account, BorderLayout.NORTH);
     root.add(pages, BorderLayout.CENTER);
     setTreeEnabled(pages, false);
@@ -436,6 +439,12 @@ public class AppBuilder {
     frame.setMinimumSize(new Dimension(1100, 700));
     frame.setSize(1250, 760);
     return frame;
+  }
+
+  private String displayedStudySetId() {
+    if (pages == null || pages.getSelectedComponent() != cardPanel
+        || !StudySetView.VIEW_NAME.equals(viewManagerModel.getActiveView())) { return null; }
+    return studySetViewModel.getState().getStudySetId();
   }
 
   private boolean confirmDiscard(Component parent, String action) {

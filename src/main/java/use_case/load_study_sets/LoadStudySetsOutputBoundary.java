@@ -5,5 +5,6 @@ import use_case.cloud.SetSnapshot;
 public interface LoadStudySetsOutputBoundary {
   void listed(List<SetSummary> sets);
   void opened(SetSnapshot set);
+  void refreshed(SetSnapshot set);
   void failed(String message);
 }
