@@ -572,7 +572,8 @@ public class AppBuilder {
         editStudySetViewModel,
         this::currentUserId,
         name -> JOptionPane.showConfirmDialog(cardPanel,
-            "Remove \"" + name + "\"? Save All applies the deletion if this set is already saved.",
+            "Remove \"" + name + "\"? Save All applies the deletion if this set is already saved."
+                + "\nBefore Save All, Refresh set list can restore a saved set from your account.",
             "Delete study set", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION,
         () -> viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME),
         () -> viewManagerModel.setActiveView(CreateStudySetView.VIEW_NAME));

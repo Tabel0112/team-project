@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
+import use_case.load_study_sets.*;
 import use_case.save_study_set.*;
 import static org.junit.Assert.*;
 
@@ -64,7 +65,7 @@ public class SaveAllStudySetsTest {
     assertEquals(1, output.result.failures.size()); assertTrue(output.result.stillDirty);
     assertEquals(List.of("cached"), local.pendingDeletions(user));
     assertEquals(1, gateway.saves.size()); // Never replay an ordinary update for a queued deletion.
-    local.mergeSummaries(user, List.of(new SetSummary("cached", "Stale cloud result")));
+    local.mergeSummaries(user, List.of()); // An absent ID stays queued after an ambiguous delete failure.
     assertFalse(local.summaries(user).stream().anyMatch(summary -> summary.id.equals("cached")));
     assertNull(local.local(user, "cached"));
     assertThrows(CloudException.class, () -> local.pendingOrCapture(user, "cached"));
@@ -89,7 +90,7 @@ public class SaveAllStudySetsTest {
     assertFalse(output.result.stillDirty);
   }
 
-  @Test public void draftInPresentationIndexIsLocalOnlyButUnopenedCloudIdQueuesPerAccount() throws Exception {
+  @Test public void draftInPresentationIndexIsLocalOnlyAndRefreshRestoresUnopenedSavedSet() throws Exception {
     local.mergeSummaries(user, List.of(new SetSummary("remote", "Remote")));
     draft("draft", "Local");
     // Olivia's presentation reorder can place drafts in this index. It is not
@@ -106,8 +107,59 @@ public class SaveAllStudySetsTest {
     assertTrue(local.hasUnsaved(user)); assertFalse(local.contains(user, "remote"));
     assertTrue(local.summaries(user).isEmpty());
     local.mergeSummaries(user, List.of(new SetSummary("remote", "Remote")));
-    assertTrue(local.summaries(user).isEmpty());
+    assertEquals("remote", local.summaries(user).get(0).id);
+    assertTrue(local.pendingDeletions(user).isEmpty()); assertFalse(local.hasUnsaved(user));
+    assertNull(local.local(user, "remote")); assertFalse(local.contains(user, "draft"));
+    save.execute(user); assertTrue(gateway.calls.isEmpty());
     local.clear(); assertFalse(local.hasUnsaved(user)); assertTrue(local.pendingDeletions(user).isEmpty());
+  }
+
+  @Test public void successfulRefreshRestoresExactIdsAndKeepsOtherAccountsDraftsAndEdits() throws Exception {
+    saved("restore", 3);
+    local.getStudySetById("restore").getCardsList().addCard(new Flashcard("discarded", "edit"));
+    local.delete(user, "restore");
+    draft("confirmed", "Saved first create"); local.pendingOrCapture(user, "confirmed");
+    local.delete(user, "confirmed");
+    draft("absent", "Same name"); SaveRequest absent = local.pendingOrCapture(user, "absent");
+    local.delete(user, "absent");
+    saved("edited", 2);
+    StudySet edited = local.getStudySetById("edited");
+    edited.getCardsList().addCard(new Flashcard("keep", "edit"));
+    SaveRequest pendingEdit = local.pendingOrCapture(user, "edited");
+    StudySet draft = draft("draft", "Keep draft");
+    draft("discarded", "Discard draft"); local.delete(user, "discarded");
+    local.install("account-b", new SetSnapshot("restore", "Other account", 1, List.of()));
+    local.delete("account-b", "restore");
+    gateway.listed = List.of(new SetSummary("restore", "Saved version"),
+        new SetSummary("confirmed", "Saved first create"), new SetSummary("different-id", "Same name"));
+    Loads out = new Loads(); LoadStudySetsInteractor load = new LoadStudySetsInteractor(local, gateway, out);
+    load.list(user);
+    assertNull(out.error); assertEquals(List.of("absent"), local.pendingDeletions(user));
+    assertEquals(List.of("restore"), local.pendingDeletions("account-b"));
+    assertNull(local.pendingCreationForDeletion(user, "confirmed"));
+    assertSame(absent, local.pendingCreationForDeletion(user, "absent"));
+    assertSame(edited, local.getStudySetById("edited")); assertSame(pendingEdit, local.pendingOrCapture(user, "edited"));
+    assertSame(draft, local.getStudySetById("draft")); assertNull(local.local(user, "discarded"));
+    assertNull(local.local(user, "restore"));
+    load.open(user, "restore");
+    assertEquals("Saved version", out.opened.name); assertEquals(9, out.opened.revision);
+    assertTrue(out.opened.cards.isEmpty()); assertFalse(local.isDirty(user, "restore"));
+    save.execute(user);
+    assertFalse(gateway.calls.contains("delete:restore")); assertFalse(gateway.calls.contains("delete:confirmed"));
+    assertFalse(gateway.calls.contains("save:confirmed"));
+  }
+
+  @Test public void failedRefreshKeepsQueuedDeletionsAndUnresolvedCreateReceipts() throws Exception {
+    saved("saved", 1); local.delete(user, "saved");
+    draft("first", "First"); SaveRequest first = local.pendingOrCapture(user, "first");
+    local.delete(user, "first");
+    gateway.listed = List.of(new SetSummary("saved", "Saved"), new SetSummary("first", "First"));
+    gateway.failedList = true;
+    Loads out = new Loads(); new LoadStudySetsInteractor(local, gateway, out).list(user);
+    assertEquals("offline", out.error); assertNull(out.listed);
+    assertEquals(List.of("saved", "first"), local.pendingDeletions(user));
+    assertSame(first, local.pendingCreationForDeletion(user, "first"));
+    assertTrue(local.summaries(user).isEmpty()); assertTrue(local.hasUnsaved(user));
   }
 
   @Test public void ambiguousFirstCreateResolvesExactReceiptOnceBeforeDeletingAndNeverResurrectsOnRetry() throws Exception {
@@ -147,10 +199,15 @@ public class SaveAllStudySetsTest {
     assertEquals(0, output.result.deletedCount);
   }
 
-  private static final class Gateway implements SaveAllStudySetsDataAccessInterface {
+  private static final class Gateway implements SaveAllStudySetsDataAccessInterface, LoadStudySetsDataAccessInterface {
     final List<String> calls = new ArrayList<>();
     final List<SaveRequest> saves = new ArrayList<>();
     final Set<String> failedSaves = new HashSet<>(), failedDeletes = new HashSet<>();
+    List<SetSummary> listed = List.of(); boolean failedList;
+    public List<SetSummary> list(String userId) throws CloudException {
+      if (failedList) { throw new CloudException("offline"); } return listed;
+    }
+    public SetSnapshot load(String userId, String setId) { return new SetSnapshot(setId, "Saved version", 9, List.of()); }
     public long save(SaveRequest request) throws CloudException {
       calls.add("save:" + request.snapshot.id); saves.add(request);
       if (failedSaves.contains(request.snapshot.id)) { throw new CloudException("offline"); }
@@ -160,6 +217,12 @@ public class SaveAllStudySetsTest {
       calls.add("delete:" + setId);
       if (failedDeletes.contains(setId)) { throw new CloudException("offline"); }
     }
+  }
+  private static final class Loads implements LoadStudySetsOutputBoundary {
+    List<SetSummary> listed; SetSnapshot opened; String error;
+    public void listed(List<SetSummary> sets) { listed = sets; }
+    public void opened(SetSnapshot set) { opened = set; }
+    public void failed(String message) { error = message; }
   }
   private static final class Output implements SaveAllStudySetsOutputBoundary {
     SaveAllStudySetsOutputData result; String error; int completed;

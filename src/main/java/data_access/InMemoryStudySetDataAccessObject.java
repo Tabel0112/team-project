@@ -156,7 +156,13 @@ public class InMemoryStudySetDataAccessObject implements CreateStudySetDataAcces
     Set<String> listed = new LinkedHashSet<>();
     for (SetSummary summary : summaries) {
       listed.add(summary.id);
-      if (!queuedForDeletion(user, summary.id)) { replacement.put(summary.id, summary); }
+      // A successful cloud list restores saved sets removed only locally. The
+      // discarded working copy stays absent, so opening loads its saved version.
+      Set<String> queued = deletions.get(user);
+      if (queued != null && queued.remove(summary.id)) {
+        deletionCreates.remove(key(user, summary.id));
+      }
+      replacement.put(summary.id, summary);
     }
     cloudListedIds.put(user, listed);
     indexes.put(user, replacement);

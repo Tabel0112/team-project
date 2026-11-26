@@ -23,7 +23,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class SaveAllEditStudySetIntegrationTest {
-  @Test public void deletingAnUnopenedSetFromItsEditMenuStaysHiddenAndCommitsOnSaveAll() {
+  @Test public void refreshCancelsEditMenuDeletionAndLaterConfirmedDeleteStaysGone() {
     String user = "student";
     String deletedSet = "physics";
     InMemoryStudySetDataAccessObject local = new InMemoryStudySetDataAccessObject();
@@ -48,20 +48,34 @@ public class SaveAllEditStudySetIntegrationTest {
     assertTrue(local.hasUnsaved(user));
     assertEquals(2, cloud.list(user).size());
     load.list(user);
-    assertEquals(1, initialList.listed.size());
-    assertEquals("chemistry", initialList.listed.get(0).id);
+    assertEquals(2, initialList.listed.size());
+    assertEquals(deletedSet, initialList.listed.get(0).id);
+    assertTrue(local.pendingDeletions(user).isEmpty()); assertFalse(local.hasUnsaved(user));
 
-    new SaveAllStudySetsInteractor(local, cloud, new SaveAllStudySetsOutputBoundary() {
+    List<SaveAllStudySetsOutputData> outcomes = new ArrayList<>();
+    SaveAllStudySetsInteractor save = new SaveAllStudySetsInteractor(local, cloud, new SaveAllStudySetsOutputBoundary() {
       @Override public void savedAll(SaveAllStudySetsOutputData output) {
-        assertEquals(1, output.deletedCount);
+        outcomes.add(output);
         assertEquals(0, output.savedCount);
         assertTrue(output.failures.isEmpty());
       }
 
       @Override public void failed(String message) { fail(message); }
-    }).execute(user);
+    });
+    save.execute(user);
+    assertEquals(0, outcomes.get(0).deletedCount); assertTrue(cloud.deleted.isEmpty());
+    assertEquals(2, cloud.list(user).size());
+
+    edit.delete(user, deletedSet);
+    assertTrue(local.hasUnsaved(user));
+    save.execute(user);
+    assertEquals(1, outcomes.get(1).deletedCount);
     assertEquals(List.of(deletedSet), cloud.deleted);
     assertFalse(local.hasUnsaved(user));
+    load.list(user);
+    assertEquals(1, initialList.listed.size());
+    assertEquals("chemistry", initialList.listed.get(0).id);
+    save.execute(user); assertEquals(List.of(deletedSet), cloud.deleted);
 
     Loads nextSession = new Loads();
     new LoadStudySetsInteractor(new InMemoryStudySetDataAccessObject(), cloud, nextSession)
