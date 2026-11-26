@@ -61,7 +61,7 @@ public class EditStudySetInteractor implements EditStudySetInputBoundary {
         final String newName = inputData.getNewName() == null
             ? "" : inputData.getNewName().trim();
         final String problem = nameProblem(studySets, target, newName);
-        if (problem != null) {                                  // extension 4a
+        if (problem != null) {
           presenter.prepareFailView(problem);
           return;
         }
